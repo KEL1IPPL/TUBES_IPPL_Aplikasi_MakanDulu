@@ -1,1 +1,2 @@
-ini buat baruh file seperti dppl, skpl, dll jika diperlukan
+Berikut link file SKPL : https://docs.google.com/document/d/1_myPHbxGP_6FRtFDhG8dPc3Qz4bdfYJKscnPEhyozQg/edit?tab=t.0
+Berikut link file DPPL : https://docs.google.com/document/d/19Q0EnH7QBpT68qepA4pAitoVW2hOZPjFbXlnemJZ5Ks/edit?tab=t.0
