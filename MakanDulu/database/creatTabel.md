@@ -1,3 +1,4 @@
+``` sql
 CREATE TABLE AkunPengguna (
     idAkun INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(50) NOT NULL UNIQUE,
@@ -288,3 +289,4 @@ CREATE INDEX idx_ulasan_pesanan
 
 CREATE INDEX idx_laporan_penjual_periode
     ON LaporanPenjual(idPenjual, periodeAwal, periodeAkhir);
+```
