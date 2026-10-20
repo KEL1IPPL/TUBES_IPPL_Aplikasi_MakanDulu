@@ -1,5 +1,5 @@
 ``` sql
-<!-- query nambah data  -->
+-- query nambah data
 
 INSERT INTO AkunPengguna (email, password, role) VALUES
 ('asep123@gmail.com', 'pass123', 'Pembeli'),
@@ -66,7 +66,6 @@ INSERT INTO Voucher (idPenjual, kodeVoucher, jenisDiskon, nilaiDiskon, kuota, ta
 (3, 'KOPIENAK', 'Nominal', 3000.00, 200, '2026-12-31 23:59:59'),
 (4, 'SATEPUAS', 'Nominal', 10000.00, 20, '2026-12-31 23:59:59'),
 (5, 'MARTABAKMANIS', 'Persentase', 15.00, 30, '2026-12-31 23:59:59');
-
 
 INSERT INTO Pesanan (idPembeli, idPenjual, idVoucher, kodeVoucher, alamatPengantaran, statusPesanan, totalHarga, totalDiskon) VALUES
 (1, 1, 1, 'NASGORHEMAT', 'Jl. Merdeka No. 1', 'Pesanan Selesai', 25000.00, 5000.00),
