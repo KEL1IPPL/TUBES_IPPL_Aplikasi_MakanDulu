@@ -1,4 +1,7 @@
-query nambah data INSERT INTO AkunPengguna (email, password, role) VALUES
+``` sql
+<!-- query nambah data  -->
+
+INSERT INTO AkunPengguna (email, password, role) VALUES
 ('asep123@gmail.com', 'pass123', 'Pembeli'),
 ('neuvillete345@gmail.com', 'pass345', 'Pembeli'),
 ('karbit567@gmail.com', 'pass567', 'Pembeli'),
@@ -128,3 +131,4 @@ INSERT INTO LaporanPenjual (idPenjual, periodeAwal, periodeAkhir, totalPesanan, 
 (3, '2026-10-01', '2026-10-31', 2, 45000.00, 3000.00),
 (4, '2026-10-01', '2026-10-31', 1, 60000.00, 0),
 (5, '2026-10-01', '2026-10-31', 2, 105000.00, 5250.00);
+```
