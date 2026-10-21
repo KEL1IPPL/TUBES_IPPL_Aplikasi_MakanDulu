@@ -1,9 +1,19 @@
-require('dotenv').config();
+const path = require('path');
+const dotenv = require('dotenv');
 const mysql = require('mysql2');
 
-const db = mysql.createPool({
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+const requiredConfig = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+const missingConfig = requiredConfig.filter((key) => !process.env[key]);
+
+if (missingConfig.length > 0) {
+    throw new Error(`Konfigurasi database belum lengkap: ${missingConfig.join(', ')}`);
+}
+
+const pool = mysql.createPool({
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+    port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
@@ -15,13 +25,6 @@ const db = mysql.createPool({
     queueLimit: 0
 });
 
-db.getConnection((err, connection) => {
-    if (err){
-        console.error('Ngga Connect Ke Database Bjir')
-    } else{
-        console.log('Berhasil Connect ke Database MySQL')
-        connection.release();
-    }
-});
+const db = pool.promise();
 
-module.exports = db.promise();
+module.exports = db;
