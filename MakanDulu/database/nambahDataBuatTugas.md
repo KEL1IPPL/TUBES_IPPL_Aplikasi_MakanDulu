@@ -1,4 +1,7 @@
-query nambah data INSERT INTO AkunPengguna (email, password, role) VALUES
+``` sql
+-- query nambah data
+
+INSERT INTO AkunPengguna (email, password, role) VALUES
 ('asep123@gmail.com', 'pass123', 'Pembeli'),
 ('neuvillete345@gmail.com', 'pass345', 'Pembeli'),
 ('karbit567@gmail.com', 'pass567', 'Pembeli'),
@@ -64,7 +67,6 @@ INSERT INTO Voucher (idPenjual, kodeVoucher, jenisDiskon, nilaiDiskon, kuota, ta
 (4, 'SATEPUAS', 'Nominal', 10000.00, 20, '2026-12-31 23:59:59'),
 (5, 'MARTABAKMANIS', 'Persentase', 15.00, 30, '2026-12-31 23:59:59');
 
-
 INSERT INTO Pesanan (idPembeli, idPenjual, idVoucher, kodeVoucher, alamatPengantaran, statusPesanan, totalHarga, totalDiskon) VALUES
 (1, 1, 1, 'NASGORHEMAT', 'Jl. Merdeka No. 1', 'Pesanan Selesai', 25000.00, 5000.00),
 (2, 2, NULL, NULL, 'Jl. Focalor No. 2', 'Pesanan Selesai', 20000.00, 0),
@@ -128,3 +130,4 @@ INSERT INTO LaporanPenjual (idPenjual, periodeAwal, periodeAkhir, totalPesanan, 
 (3, '2026-10-01', '2026-10-31', 2, 45000.00, 3000.00),
 (4, '2026-10-01', '2026-10-31', 1, 60000.00, 0),
 (5, '2026-10-01', '2026-10-31', 2, 105000.00, 5250.00);
+```
