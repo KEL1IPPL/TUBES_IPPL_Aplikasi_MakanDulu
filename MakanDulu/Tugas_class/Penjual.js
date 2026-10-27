@@ -1,8 +1,6 @@
 const dataSimulasi = { penjual: [], menu: [], pesanan: [], nomorBerikutnya: { penjual: 1, menu: 1 } };
 
 const STATUS_PESANAN = [
-    'Menunggu Konfirmasi Penjual',
-    'Pesanan Diterima oleh Penjual',
     'Pesanan Disiapkan',
     'Pesanan Diantar',
     'Pesanan Selesai'
@@ -129,86 +127,15 @@ class Penjual {
     }
 
     kelolaMenu(aksi, data = {}) {
-        if (aksi === 'lihat') {
-            return dataSimulasi.menu.filter(
-                (menu) => menu.idPenjual === this.#idPenjual
-            );
-        }
-
-        if (aksi === 'tambah') {
-            const menuBaru = {
-                idMenu: dataSimulasi.nomorBerikutnya.menu++,
-                idPenjual: this.#idPenjual,
-                namaMenu: data.namaMenu,
-                harga: data.harga,
-                kategori: data.kategori || null,
-                foto: data.foto || null,
-                deskripsi: data.deskripsi || null,
-                statusAktif: data.statusAktif !== false
-            };
-
-            dataSimulasi.menu.push(menuBaru);
-            return menuBaru.idMenu;
-        }
-
-        if (aksi === 'ubah') {
-            const menu = dataSimulasi.menu.find((item) =>
-                item.idMenu === data.idMenu &&
-                item.idPenjual === this.#idPenjual
-            );
-
-            if (!menu) {
-                return false;
-            }
-
-            Object.assign(menu, {
-                namaMenu: data.namaMenu,
-                harga: data.harga,
-                kategori: data.kategori || null,
-                foto: data.foto || null,
-                deskripsi: data.deskripsi || null,
-                statusAktif: data.statusAktif !== false
-            });
-            return true;
-        }
-
-        if (aksi === 'hapus') {
-            const index = dataSimulasi.menu.findIndex((menu) =>
-                menu.idMenu === data.idMenu &&
-                menu.idPenjual === this.#idPenjual
-            );
-
-            if (index === -1) {
-                return false;
-            }
-
-            dataSimulasi.menu.splice(index, 1);
-            return true;
-        }
-
-        throw new Error('Aksi kelola menu tidak valid.');
+        //TODO: Implementasi kelola menu
     }
 
     konfirmasiPesanan(idPesanan, status = 'Pesanan Diterima oleh Penjual') {
-        if (!STATUS_PESANAN.includes(status)) {
-            throw new Error('Status pesanan tidak valid.');
-        }
-
-        const pesanan = dataSimulasi.pesanan.find((data) =>
-            data.idPesanan === idPesanan &&
-            data.idPenjual === this.#idPenjual
-        );
-
-        if (!pesanan) {
-            return false;
-        }
-
-        pesanan.statusPesanan = status;
-        return true;
+        //TODO: Implementasi konfirmasi pesanan
     }
 
     ubahStatusPesanan(idPesanan, status) {
-        return this.konfirmasiPesanan(idPesanan, status);
+        //TODO: Implementasi ubah status pesanan
     }
 
     logout() {
