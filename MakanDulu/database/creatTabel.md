@@ -1,51 +1,54 @@
 ``` sql
-CREATE TABLE AkunPengguna (
-    idAkun INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    role ENUM('Pembeli', 'Penjual') NOT NULL
-);
+CREATE DATABASE IF NOT EXISTS makandulu_db;
+USE makandulu_db;
 
 CREATE TABLE Pembeli (
     idPembeli INT AUTO_INCREMENT PRIMARY KEY,
-    idAkun INT NOT NULL UNIQUE,
+    email VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
     nama VARCHAR(25) NOT NULL,
     nomorTelepon VARCHAR(20) NOT NULL UNIQUE,
-    alamat TEXT NOT NULL,
-    CONSTRAINT fk_pembeli_akun
-        FOREIGN KEY (idAkun) REFERENCES AkunPengguna(idAkun)
-        ON UPDATE CASCADE ON DELETE CASCADE
+    alamat TEXT NOT NULL
 );
 
 CREATE TABLE Penjual (
     idPenjual INT AUTO_INCREMENT PRIMARY KEY,
-    namaPemilik VARCHAR(25) NOT NULL,
     email VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    namaPemilik VARCHAR(25) NOT NULL,
     namaToko VARCHAR(30) NOT NULL,
     nomorTelepon VARCHAR(15) NOT NULL UNIQUE,
     alamatToko TEXT NOT NULL,
     NIB VARCHAR(13) NOT NULL UNIQUE,
     NPWP VARCHAR(21) NOT NULL UNIQUE,
-<<<<<<< HEAD
     KTP VARCHAR(16) NOT NULL UNIQUE
-=======
-    KTP VARCHAR(16) NOT NULL UNIQUE,
-    CONSTRAINT fk_penjual_akun
-        FOREIGN KEY (idAkun) REFERENCES AkunPengguna(idAkun)
+);
+
+CREATE TABLE Role (
+    idRole INT AUTO_INCREMENT PRIMARY KEY,
+    idPenjual INT NULL UNIQUE,
+    idPembeli INT NULL UNIQUE,
+    role ENUM('Pembeli', 'Penjual') NOT NULL,
+
+    CONSTRAINT fk_role_penjual
+	FOREIGN KEY (idPenjual) REFERENCES Penjual(idPenjual)
+	ON UPDATE CASCADE ON DELETE CASCADE,
+
+    CONSTRAINT fk_role_pembeli
+        FOREIGN KEY (idPembeli) REFERENCES Pembeli(idPembeli)
         ON UPDATE CASCADE ON DELETE CASCADE
->>>>>>> 20b2c87d7970432fbf303217f9974058e78150a5
 );
 
 CREATE TABLE Menu (
     idMenu INT AUTO_INCREMENT PRIMARY KEY,
     idPenjual INT NOT NULL,
-    namaMenu VARCHAR(120) NOT NULL,
+    namaMenu VARCHAR(50) NOT NULL,
     harga DECIMAL(12,2) NOT NULL,
-    kategori VARCHAR(80),
+    kategori VARCHAR(20),
     foto TEXT,
     deskripsi TEXT,
     statusAktif BOOLEAN NOT NULL DEFAULT TRUE,
+
     CONSTRAINT fk_menu_penjual
         FOREIGN KEY (idPenjual) REFERENCES Penjual(idPenjual)
         ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -57,6 +60,7 @@ CREATE TABLE PreferensiMakanan (
     idPembeli INT NOT NULL,
     rasaFavorit VARCHAR(10),
     kategoriFavorit VARCHAR(20),
+
     CONSTRAINT fk_preferensi_pembeli
         FOREIGN KEY (idPembeli) REFERENCES Pembeli(idPembeli)
         ON UPDATE CASCADE ON DELETE CASCADE
@@ -66,6 +70,7 @@ CREATE TABLE Keranjang (
     idKeranjang INT AUTO_INCREMENT PRIMARY KEY,
     idPembeli INT NOT NULL UNIQUE,
     totalHarga DECIMAL(12,2) NOT NULL DEFAULT 0,
+
     CONSTRAINT fk_keranjang_pembeli
         FOREIGN KEY (idPembeli) REFERENCES Pembeli(idPembeli)
         ON UPDATE CASCADE ON DELETE CASCADE,
@@ -83,9 +88,11 @@ CREATE TABLE ItemKeranjang (
     CONSTRAINT fk_itemkeranjang_keranjang
         FOREIGN KEY (idKeranjang) REFERENCES Keranjang(idKeranjang)
         ON UPDATE CASCADE ON DELETE CASCADE,
+
     CONSTRAINT fk_itemkeranjang_menu
         FOREIGN KEY (idMenu) REFERENCES Menu(idMenu)
         ON UPDATE CASCADE ON DELETE RESTRICT,
+
     CONSTRAINT chk_itemkeranjang_jumlah CHECK (jumlah > 0),
     CONSTRAINT chk_itemkeranjang_harga CHECK (hargaSatuan >= 0),
     CONSTRAINT chk_itemkeranjang_subtotal CHECK (subtotal >= 0)
@@ -102,9 +109,11 @@ CREATE TABLE Voucher (
 
     CONSTRAINT uq_voucher_penjual_kode
         UNIQUE (idPenjual, kodeVoucher),
+
     CONSTRAINT fk_voucher_penjual
         FOREIGN KEY (idPenjual) REFERENCES Penjual(idPenjual)
         ON UPDATE CASCADE ON DELETE RESTRICT,
+
     CONSTRAINT chk_voucher_nilai CHECK (nilaiDiskon > 0),
     CONSTRAINT chk_voucher_kuota CHECK (kuota >= 0)
 );
@@ -131,14 +140,20 @@ CREATE TABLE Pesanan (
     totalDiskon DECIMAL(12,2) NOT NULL DEFAULT 0,
 
     CONSTRAINT fk_pesanan_pembeli
-        FOREIGN KEY (idPembeli) REFERENCES Pembeli(idPembeli)
+        FOREIGN KEY (idPembeli)
+        REFERENCES Pembeli(idPembeli)
         ON UPDATE CASCADE ON DELETE RESTRICT,
+
     CONSTRAINT fk_pesanan_penjual
-        FOREIGN KEY (idPenjual) REFERENCES Penjual(idPenjual)
+        FOREIGN KEY (idPenjual)
+        REFERENCES Penjual(idPenjual)
         ON UPDATE CASCADE ON DELETE RESTRICT,
+
     CONSTRAINT fk_pesanan_voucher
-        FOREIGN KEY (idVoucher) REFERENCES Voucher(idVoucher)
+        FOREIGN KEY (idVoucher)
+        REFERENCES Voucher(idVoucher)
         ON UPDATE CASCADE ON DELETE SET NULL,
+
     CONSTRAINT chk_pesanan_total CHECK (totalHarga >= 0),
     CONSTRAINT chk_pesanan_diskon CHECK (totalDiskon >= 0)
 );
@@ -157,11 +172,13 @@ CREATE TABLE DetailPesanan (
         REFERENCES Pesanan(idPesanan)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
+
     CONSTRAINT fk_detailpesanan_menu
         FOREIGN KEY (idMenu)
         REFERENCES Menu(idMenu)
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
+
     CONSTRAINT chk_detail_jumlah CHECK (jumlah > 0),
     CONSTRAINT chk_detail_harga CHECK (hargaSatuan >= 0),
     CONSTRAINT chk_detail_subtotal CHECK (subtotal >= 0)
@@ -181,9 +198,11 @@ CREATE TABLE Pembayaran (
 
     totalBayar DECIMAL(12,2) NOT NULL,
     tanggalPembayaran DATETIME NULL,
+
     CONSTRAINT fk_pembayaran_pesanan
         FOREIGN KEY (idPesanan) REFERENCES Pesanan(idPesanan)
         ON UPDATE CASCADE ON DELETE CASCADE,
+
     CONSTRAINT chk_pembayaran_total CHECK (totalBayar >= 0)
 );
 
@@ -192,6 +211,7 @@ CREATE TABLE eWallet (
     idPembayaran INT NOT NULL UNIQUE,
     idTransaksi VARCHAR(20),
     namaEwallet VARCHAR(10) NOT NULL,
+
     CONSTRAINT fk_ewallet_pembayaran
         FOREIGN KEY (idPembayaran) REFERENCES Pembayaran(idPembayaran)
         ON UPDATE CASCADE ON DELETE CASCADE
@@ -215,12 +235,15 @@ CREATE TABLE Ulasan (
     komentar TEXT,
     fotoUlasan TEXT,
     tanggalUlasan DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     CONSTRAINT fk_ulasan_pembeli
         FOREIGN KEY (idPembeli) REFERENCES Pembeli(idPembeli)
         ON UPDATE CASCADE ON DELETE RESTRICT,
+
     CONSTRAINT fk_ulasan_pesanan
         FOREIGN KEY (idPesanan) REFERENCES Pesanan(idPesanan)
         ON UPDATE CASCADE ON DELETE CASCADE,
+
     CONSTRAINT chk_ulasan_rating CHECK (rating BETWEEN 1 AND 5),
     CONSTRAINT uq_ulasan_pembeli_pesanan UNIQUE (idPembeli, idPesanan)
 );
@@ -234,14 +257,38 @@ CREATE TABLE LaporanPenjual (
     totalPesanan INT NOT NULL DEFAULT 0,
     totalPendapatan DECIMAL(14,2) NOT NULL DEFAULT 0,
     totalDiskon DECIMAL(14,2) NOT NULL DEFAULT 0,
+
     CONSTRAINT fk_laporan_penjual
         FOREIGN KEY (idPenjual) REFERENCES Penjual(idPenjual)
         ON UPDATE CASCADE ON DELETE RESTRICT,
+
     CONSTRAINT chk_laporan_periode CHECK (periodeAkhir >= periodeAwal),
     CONSTRAINT chk_laporan_pesanan CHECK (totalPesanan >= 0),
     CONSTRAINT chk_laporan_pendapatan CHECK (totalPendapatan >= 0),
     CONSTRAINT chk_laporan_diskon CHECK (totalDiskon >= 0)
 );
+
+DELIMITER //
+
+CREATE TRIGGER trg_role_validasi_insert
+BEFORE INSERT ON Role
+FOR EACH ROW
+BEGIN
+    IF NOT (
+        (NEW.role = 'Pembeli'
+            AND NEW.idPembeli IS NOT NULL
+            AND NEW.idPenjual IS NULL)
+        OR
+        (NEW.role = 'Penjual'
+            AND NEW.idPenjual IS NOT NULL
+            AND NEW.idPembeli IS NULL)
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Role dan ID akun tidak sesuai';
+    END IF;
+END//
+
+DELIMITER ;
 
 CREATE INDEX idx_menu_penjual
     ON Menu(idPenjual);
