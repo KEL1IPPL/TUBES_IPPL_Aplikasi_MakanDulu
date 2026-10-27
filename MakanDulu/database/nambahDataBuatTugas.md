@@ -1,32 +1,31 @@
 ``` sql
 -- query nambah data
 
-INSERT INTO AkunPengguna (email, password, role) VALUES
-('asep123@gmail.com', 'pass123', 'Pembeli'),
-('neuvillete345@gmail.com', 'pass345', 'Pembeli'),
-('karbit567@gmail.com', 'pass567', 'Pembeli'),
-('tukangclaim890@gmail.com', 'pass890', 'Pembeli'),
-('fireflycaelus@gmail.com', 'karbit123', 'Pembeli'),
-('nasgor_cakmin@gmail.com', 'pass123', 'Penjual'),
-('ayam_geprek_juara@gmail.com', 'pass123', 'Penjual'),
-('kopi_senja@gmail.com', 'pass123', 'Penjual'),
-('sate_madura_jaya@gmail.com', 'pass123', 'Penjual'),
-('martabak_bangka@gmail.com', 'pass123', 'Penjual');
+INSERT INTO Pembeli (idPembeli, email, password, nama, nomorTelepon, alamat) VALUES
+(1, 'asep123@gmail.com', 'pass123', 'Asep Keren', '081234567890', 'Jl. Merdeka No. 1, Surabaya'),
+(2, 'neuvillete345@gmail.com', 'pass345', 'Neuvillete', '081234567891', 'Jl. Focalor No. 2, Fontaine'),
+(3, 'karbit567@gmail.com', 'pass567', 'Kiko Samara', '081234567892', 'Jl. Thamrin No. 3, Surabaya'),
+(4, 'tukangclaim890@gmail.com', 'pass890', 'Udin Racing', '081234567893', 'Jl. Gatot Subroto No. 4, Surabaya'),
+(5, 'fireflycaelus@gmail.com', 'karbit123', 'FireFly', '081234567894', 'Jl. Trailblazer No. 5, Amporeus');
 
-INSERT INTO Pembeli (idAkun, nama, nomorTelepon, alamat) VALUES
-(1, 'Asep Keren', '081234567890', 'Jl. Merdeka No. 1, Surabaya'),
-(2, 'Neuvillete', '081234567891', 'Jl. Focalor No. 2, Fontaine'),
-(3, 'Kiko Samara', '081234567892', 'Jl. Thamrin No. 3, Surabaya'),
-(4, 'Udin Racing', '081234567893', 'Jl. Gatot Subroto No. 4, Surabaya'),
-(5, 'FireFly', '081234567894', 'Jl. Trailblazer No. 5, Amporeus');
+INSERT INTO Penjual (idPenjual, email, password, namaPemilik, namaToko, nomorTelepon, alamatToko, NIB, NPWP, KTP) VALUES
+(1, 'nasgor_cakmin@gmail.com', 'pass123', 'Cak Min', 'Nasgor Cak Min', '085234567890', 'Jl. Pahlawan 1', '1234567890123', '123456789012345678901', '1234567890123456'),
+(2, 'ayam_geprek_juara@gmail.com', 'pass123', 'Pak Juara', 'Ayam Geprek Juara', '085234567891', 'Jl. Pahlawan 2', '1234567890124', '123456789012345678902', '1234567890123457'),
+(3, 'kopi_senja@gmail.com', 'pass123', 'Mas Senja', 'Kopi Senja', '085234567892', 'Jl. Pahlawan 3', '1234567890125', '123456789012345678903', '1234567890123458'),
+(4, 'sate_madura_jaya@gmail.com', 'pass123', 'Cak Mad', 'Sate Madura Jaya', '085234567893', 'Jl. Pahlawan 4', '1234567890126', '123456789012345678904', '1234567890123459'),
+(5, 'martabak_bangka@gmail.com', 'pass123', 'Koh Bangka', 'Martabak Bangka', '085234567894', 'Jl. Pahlawan 5', '1234567890127', '123456789012345678905', '1234567890123460');
 
-INSERT INTO Penjual (idAkun, namaPemilik, namaToko, nomorTelepon, alamatToko, NIB, NPWP, KTP) VALUES
-(6, 'Cak Min', 'Nasgor Cak Min', '085234567890', 'Jl. Pahlawan 1', '1234567890123', '123456789012345678901', '1234567890123456'),
-(7, 'Pak Juara', 'Ayam Geprek Juara', '085234567891', 'Jl. Pahlawan 2', '1234567890124', '123456789012345678902', '1234567890123457'),
-(8, 'Mas Senja', 'Kopi Senja', '085234567892', 'Jl. Pahlawan 3', '1234567890125', '123456789012345678903', '1234567890123458'),
-(9, 'Cak Mad', 'Sate Madura Jaya', '085234567893', 'Jl. Pahlawan 4', '1234567890126', '123456789012345678904', '1234567890123459'),
-(10, 'Koh Bangka', 'Martabak Bangka', '085234567894', 'Jl. Pahlawan 5', '1234567890127', '123456789012345678905', '1234567890123460');
-
+INSERT INTO Role (idRole, idPenjual, idPembeli, role) VALUES
+(1, NULL, 1, 'Pembeli'),
+(2, NULL, 2, 'Pembeli'),
+(3, NULL, 3, 'Pembeli'),
+(4, NULL, 4, 'Pembeli'),
+(5, NULL, 5, 'Pembeli'),
+(6, 1, NULL, 'Penjual'),
+(7, 2, NULL, 'Penjual'),
+(8, 3, NULL, 'Penjual'),
+(9, 4, NULL, 'Penjual'),
+(10, 5, NULL, 'Penjual');
 
 INSERT INTO Menu (idPenjual, namaMenu, harga, kategori, foto, deskripsi, statusAktif) VALUES
 (1, 'Nasi Goreng Spesial', 25000.00, 'Makanan Utama', 'https://share.google/LznOwXEfkmhrOb668', 'Nasi goreng dengan telur dan ayam', TRUE),
@@ -35,7 +34,6 @@ INSERT INTO Menu (idPenjual, namaMenu, harga, kategori, foto, deskripsi, statusA
 (4, 'Sate Ayam 10 Tusuk', 30000.00, 'Makanan Utama', 'https://share.google/16uFnLL0j3nDFet60', 'Sate ayam dengan bumbu kacang', TRUE),
 (5, 'Martabak Manis Coklat', 35000.00, 'Camilan', 'https://share.google/CTTrzfJp2PlEGTnla', 'Martabak manis topping coklat', TRUE);
 
-
 INSERT INTO PreferensiMakanan (idPembeli, rasaFavorit, kategoriFavorit) VALUES
 (1, 'Pedas', 'Makanan Utama'),
 (2, 'Manis', 'Camilan'),
@@ -43,15 +41,12 @@ INSERT INTO PreferensiMakanan (idPembeli, rasaFavorit, kategoriFavorit) VALUES
 (4, 'Pahit', 'Minuman'),
 (5, 'Asin', 'Camilan');
 
-
-
 INSERT INTO Keranjang (idPembeli, totalHarga) VALUES
 (1, 25000.00),
 (2, 20000.00),
 (3, 15000.00),
 (4, 60000.00),
 (5, 35000.00);
-
 
 INSERT INTO ItemKeranjang (idKeranjang, idMenu, jumlah, hargaSatuan, subtotal) VALUES
 (1, 1, 1, 25000.00, 25000.00), -- Asep beli Nasi Goreng
@@ -128,6 +123,6 @@ INSERT INTO LaporanPenjual (idPenjual, periodeAwal, periodeAkhir, totalPesanan, 
 (1, '2026-10-01', '2026-10-31', 2, 50000.00, 5000.00),
 (2, '2026-10-01', '2026-10-31', 2, 60000.00, 4000.00),
 (3, '2026-10-01', '2026-10-31', 2, 45000.00, 3000.00),
-(4, '2026-10-01', '2026-10-31', 1, 60000.00, 0),
+(4, '2026-10-01', '2026-10-31', 2, 90000.00, 10000.00),
 (5, '2026-10-01', '2026-10-31', 2, 105000.00, 5250.00);
 ```
