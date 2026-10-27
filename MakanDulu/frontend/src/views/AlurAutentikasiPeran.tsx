@@ -96,53 +96,92 @@ export const RoleAuthFlow: React.FC<RoleAuthFlowProps> = ({
   };
 
   // Handle Login (Hanya Email & Password)
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loginEmail || !loginPassword) {
-      setAlertBanner({ type: 'error', message: 'Harap masukkan email dan kata sandi akun Anda.' });
+ const handleLoginSubmit = async (
+  e: React.FormEvent<HTMLFormElement>
+) => {
+  e.preventDefault();
+
+  if (!loginEmail.trim() || !loginPassword) {
+    setAlertBanner({
+      type: 'error',
+      message: 'Harap masukkan email dan kata sandi akun Anda.',
+    });
+    return;
+  }
+
+  setIsSubmitting(true);
+  setAlertBanner(null);
+
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: loginEmail.trim(),
+        password: loginPassword,
+        role: userRole,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      setAlertBanner({
+        type: 'error',
+        message:
+          data.message ||
+          'Email atau kata sandi tidak cocok.',
+      });
+
+      showToast(
+        'Autentikasi Gagal',
+        data.message || 'Email atau kata sandi tidak cocok.',
+        true
+      );
+
       return;
     }
 
-    if (loginPassword === 'salah' || loginPassword === 'wrong') {
-      setAlertBanner({ type: 'error', message: 'Email atau kata sandi tidak cocok. Silakan coba kembali.' });
-      showToast('Autentikasi Gagal', 'Email atau kata sandi tidak cocok.', true);
-      return;
-    }
+    const akun = data.user;
 
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      showToast('Login Berhasil!', `Selamat datang kembali di MakanDulu (${userRole}).`);
+    const profil: UserProfile = {
+      name: akun.name,
+      email: akun.email,
+      phone: akun.phone,
+      address: akun.address,
+      role: akun.role,
+      registeredAt: '',
+      ...(akun.role === 'Penjual'
+        ? {
+            ownerName: akun.name,
+            storeName: akun.storeName,
+          }
+        : {}),
+    };
 
-      const defaultProfile: UserProfile = userRole === 'Pembeli' ? {
-        name: 'Siti Rahmawati',
-        email: loginEmail,
-        phone: '0812-3456-7890',
-        address: 'Jl. Sudirman No. 42 (Gedung B Lt. 3), Kebayoran Baru, Jakarta Selatan',
-        role: 'Pembeli',
-        registeredAt: '20 Oktober 2026',
-        preferences: {
-          tastes: ['pedas', 'gurih'],
-          categories: ['ayam_bebek', 'nasi_bakar'],
-          dietary: ['aman_lambung']
-        }
-      } : {
-        name: 'Budi Santoso',
-        ownerName: 'Budi Santoso',
-        storeName: 'Resto Bebek Juara',
-        email: loginEmail,
-        phone: '0813-8899-7766',
-        address: 'Jl. Fatmawati Raya No. 18, Cilandak, Jakarta Selatan',
-        role: 'Penjual',
-        nibNumber: '9120003849182 (Valid OSS RI)',
-        ktpNumber: '3174**********01',
-        npwpNumber: '82.193.***.*-013.000',
-        registeredAt: '15 Oktober 2026'
-      };
+    // Simpan token untuk autentikasi pada request berikutnya.
+    localStorage.setItem('makandulu_token', data.token);
 
-      onAuthSuccess(userRole, defaultProfile);
-    }, 700);
-  };
+    showToast(
+      'Login Berhasil!',
+      `Selamat datang kembali di MakanDulu (${akun.role}).`
+    );
+
+    onAuthSuccess(akun.role, profil);
+  } catch (error) {
+    console.error('Login error:', error);
+
+    setAlertBanner({
+      type: 'error',
+      message:
+        'Tidak dapat terhubung ke server. Periksa koneksi backend.',
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   // Handle Pembeli Registration -> DIARAHKAN KE PILIH PREFERENSI MAKANAN
   const handleCustRegisterSubmit = (e: React.FormEvent) => {

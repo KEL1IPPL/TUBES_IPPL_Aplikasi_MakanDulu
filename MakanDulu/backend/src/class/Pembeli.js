@@ -1,18 +1,16 @@
-const db = require('../db');
+const db = require('../config/db');
 const bcrypt = require('bcrypt');
 
 class Pembeli {
     #idPembeli;
-    #idAkun;
     #nama;
     #email;
     #password;
     #nomorTelepon;
     #alamat;
 
-    constructor(idPembeli, nama, email, password, nomorTelepon, alamat, idAkun = null) {
+    constructor(idPembeli, nama, email, password, nomorTelepon, alamat) {
         this.#idPembeli = idPembeli;
-        this.#idAkun = idAkun;
         this.#nama = nama;
         this.#email = email;
         this.#password = password;
@@ -21,7 +19,6 @@ class Pembeli {
     }
 
     get idPembeli() { return this.#idPembeli; }
-    get idAkun() { return this.#idAkun; }
     get idRole() { return 'Pembeli'; }
     get nama() { return this.#nama; }
     get email() { return this.#email; }
@@ -35,32 +32,31 @@ class Pembeli {
         try {
             await connection.beginTransaction();
 
-            const [existingAccount] = await connection.execute(
-                'SELECT idAkun FROM AkunPengguna WHERE email = ? LIMIT 1',
-                [this.#email]
-            );
             const [existingBuyer] = await connection.execute(
-                'SELECT idPembeli FROM Pembeli WHERE nomorTelepon = ? LIMIT 1',
-                [this.#nomorTelepon]
+                `SELECT idPembeli
+                 FROM Pembeli
+                 WHERE email = ? OR nomorTelepon = ?
+                 LIMIT 1`,
+                [this.#email, this.#nomorTelepon]
             );
 
-            if (existingAccount.length > 0 || existingBuyer.length > 0) {
+            if (existingBuyer.length > 0) {
                 throw new Error('Email atau nomor telepon sudah terdaftar.');
             }
 
             const hashedPassword = await bcrypt.hash(this.#password, 10);
-            const [accountResult] = await connection.execute(
-                'INSERT INTO AkunPengguna (email, password, role) VALUES (?, ?, ?)',
-                [this.#email, hashedPassword, 'Pembeli']
-            );
             const [buyerResult] = await connection.execute(
-                `INSERT INTO Pembeli (idAkun, nama, nomorTelepon, alamat)
-                 VALUES (?, ?, ?, ?)`,
-                [accountResult.insertId, this.#nama, this.#nomorTelepon, this.#alamat]
+                `INSERT INTO Pembeli (email, password, nama, nomorTelepon, alamat)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [this.#email, hashedPassword, this.#nama, this.#nomorTelepon, this.#alamat]
+            );
+            await connection.execute(
+                `INSERT INTO Role (idPembeli, role)
+                 VALUES (?, 'Pembeli')`,
+                [buyerResult.insertId]
             );
 
             await connection.commit();
-            this.#idAkun = accountResult.insertId;
             this.#idPembeli = buyerResult.insertId;
             return this.#idPembeli;
         } catch (error) {
@@ -73,10 +69,9 @@ class Pembeli {
 
     async login(password = this.#password) {
         const [rows] = await db.execute(
-            `SELECT p.*, a.email, a.password, a.role
-             FROM Pembeli p
-             JOIN AkunPengguna a ON a.idAkun = p.idAkun
-             WHERE a.email = ? AND a.role = 'Pembeli'`,
+            `SELECT *
+             FROM Pembeli
+             WHERE email = ?`,
             [this.#email]
         );
 
@@ -88,8 +83,8 @@ class Pembeli {
         if (!passwordValid && rows[0].password === password) {
             const hashedPassword = await bcrypt.hash(password, 10);
             await db.execute(
-                'UPDATE AkunPengguna SET password = ? WHERE idAkun = ?',
-                [hashedPassword, rows[0].idAkun]
+                'UPDATE Pembeli SET password = ? WHERE idPembeli = ?',
+                [hashedPassword, rows[0].idPembeli]
             );
             passwordValid = true;
         }
@@ -102,10 +97,9 @@ class Pembeli {
             rows[0].idPembeli,
             rows[0].nama,
             rows[0].email,
-            undefined,
+            null,
             rows[0].nomorTelepon,
-            rows[0].alamat,
-            rows[0].idAkun
+            rows[0].alamat
         );
     }
 
@@ -174,10 +168,7 @@ class Pembeli {
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         const [result] = await db.execute(
-            `UPDATE AkunPengguna a
-             JOIN Pembeli p ON p.idAkun = a.idAkun
-             SET a.password = ?
-             WHERE p.idPembeli = ?`,
+            'UPDATE Pembeli SET password = ? WHERE idPembeli = ?',
             [hashedPassword, this.#idPembeli]
         );
 

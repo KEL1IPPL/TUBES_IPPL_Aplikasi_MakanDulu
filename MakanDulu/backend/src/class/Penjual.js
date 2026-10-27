@@ -1,4 +1,4 @@
-const db = require('../db');
+const db = require('../config/db');
 const bcrypt = require('bcrypt');
 
 const STATUS_PESANAN = [
@@ -95,6 +95,11 @@ class Penjual {
                     this.#KTP
                 ]
             );
+            await connection.execute(
+                `INSERT INTO Role (idPenjual, role)
+                 VALUES (?, 'Penjual')`,
+                [penjualResult.insertId]
+            );
 
             await connection.commit();
             this.#idPenjual = penjualResult.insertId;
@@ -128,7 +133,7 @@ class Penjual {
             rows[0].NIB,
             rows[0].NPWP,
             rows[0].KTP,
-            rows[0].idRole
+            'Penjual'
         );
     }
 

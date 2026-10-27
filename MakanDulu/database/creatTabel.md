@@ -1,5 +1,3 @@
-``` sql
-CREATE DATABASE IF NOT EXISTS makandulu_db;
 USE makandulu_db;
 
 CREATE TABLE Pembeli (

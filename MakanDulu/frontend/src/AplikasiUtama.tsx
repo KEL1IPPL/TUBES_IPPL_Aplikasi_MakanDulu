@@ -99,6 +99,24 @@ export default function AplikasiUtama() {
   // Status modal alamat
   const [modalAlamatTerbuka, setModalAlamatTerbuka] = useState(false);
 
+  // Tes koneksi frontend ke backend
+useEffect(() => {
+  fetch('/api/health')
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error('Request ke backend gagal');
+      }
+
+      return response.json();
+    })
+    .then((data) => {
+      console.log('Status backend:', data.message);
+    })
+    .catch((error) => {
+      console.error('Gagal terhubung ke backend:', error);
+    });
+}, []);
+
   // Sinkronisasi otomatis ke LocalStorage
   useEffect(() => {
     simpanKePenyimpanan(KUNCI_STORAGE.TAHAP_APLIKASI, tahapAplikasi);
@@ -667,3 +685,4 @@ export default function AplikasiUtama() {
     </div>
   );
 }
+

@@ -2,9 +2,11 @@ const path = require('path');
 const dotenv = require('dotenv');
 const mysql = require('mysql2');
 
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({
+  path: path.join(__dirname, '..', '..', '.env'),
+});
 
-const requiredConfig = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+const requiredConfig = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET'];
 const missingConfig = requiredConfig.filter((key) => !process.env[key]);
 
 if (missingConfig.length > 0) {
