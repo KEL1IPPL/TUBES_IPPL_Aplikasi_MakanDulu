@@ -1,0 +1,6 @@
+{
+  "name": "MakanDulu Food Ecosystem",
+  "description": "Platform ekosistem kuliner terintegrasi dengan portal autentikasi peran, katalog makanan berbasis selera rasa, keranjang dan kasir instan, live tracking pesanan serta dashboard mitra merchant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
