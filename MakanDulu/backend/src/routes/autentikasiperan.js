@@ -3,7 +3,7 @@ const {
   registerBuyer,
   registerSeller,
   login,
-} = require('../controllers/autentikasiperan');
+} = require('../controller/autentikasiperan');
 
 const router = express.Router();
 

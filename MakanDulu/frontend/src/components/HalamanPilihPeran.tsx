@@ -155,11 +155,6 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="w-full bg-[#f0f3ff] py-6 border-t border-[#dee8ff] text-center text-xs text-[#5a4138]">
-        © 2026 MakanDulu Indonesia. Seluruh hak cipta dilindungi.
-      </footer>
     </div>
   );
 };

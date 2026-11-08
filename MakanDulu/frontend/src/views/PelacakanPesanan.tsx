@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { OrderRecord, PaymentMethod } from '../types';
+import { OrderRecord } from '../types';
 import { COURIER_AVATAR_URL, POD_PHOTO_URL } from '../data/dataMock';
 
 interface PelacakanPesananProps {
@@ -30,10 +30,7 @@ export const PelacakanPesanan: React.FC<PelacakanPesananProps> = ({
   const [reviewNote, setReviewNote] = useState('Bebeknya renyah gurih banget, sambal mangganya mantap pedas!');
   const [isReviewSubmitted, setIsReviewSubmitted] = useState(false);
 
-  // Editable payment method simulator so tester can toggle between COD and Non-COD
-  const [simulatedPaymentMethod, setSimulatedPaymentMethod] = useState<PaymentMethod>(
-    currentOrder?.paymentMethod || 'cod'
-  );
+  const paymentMethod = currentOrder?.paymentMethod || 'cod';
 
   // Jika tidak ada pesanan aktif (atau pesanan sudah selesai & diulas):
   if (!currentOrder && !isMerchantView) {
@@ -94,7 +91,7 @@ export const PelacakanPesanan: React.FC<PelacakanPesananProps> = ({
     serviceFee: 2000,
     discount: 0,
     total: 100000,
-    paymentMethod: simulatedPaymentMethod,
+    paymentMethod,
     address: {
       label: 'Rumah',
       street: 'Jl. Sudirman No. 42 (Gedung B Lt. 3)',
@@ -112,7 +109,7 @@ export const PelacakanPesanan: React.FC<PelacakanPesananProps> = ({
     merchantTimerSeconds: 480
   };
 
-  const isCOD = simulatedPaymentMethod === 'cod';
+  const isCOD = paymentMethod === 'cod';
 
   const steps = [
     { id: 'terima', label: 'Pesanan Diterima Resto', time: '12:45', done: true },
@@ -196,39 +193,6 @@ export const PelacakanPesanan: React.FC<PelacakanPesananProps> = ({
           </div>
         </div>
 
-        {/* Status Simulator Controls & Payment Method Toggle */}
-        <div className="flex flex-wrap items-center gap-2 bg-[#f0f3ff] p-2 rounded-2xl border border-[#dee8ff]">
-          <span className="text-[11px] font-bold text-[#5a4138]">Simulasi Metode:</span>
-          <button
-            type="button"
-            onClick={() => {
-              setSimulatedPaymentMethod('cod');
-              showToast('Metode Diubah ke COD', 'Pembeli kini dapat menolak pesanan jika makanan rusak/salah.');
-            }}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
-              isCOD
-                ? 'bg-[#a33900] text-white border-[#a33900] shadow-xs'
-                : 'bg-white text-[#111c2d] border-[#dee8ff]'
-            }`}
-          >
-            COD (Bisa Ditolak)
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSimulatedPaymentMethod('ewallet');
-              if (orderStatus === 'ditolak_cod') setOrderStatus('diantar');
-              showToast('Metode Diubah ke Non-COD', 'Pembayaran Non-COD tidak bisa menolak pesanan.');
-            }}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
-              !isCOD
-                ? 'bg-[#006c49] text-white border-[#006c49] shadow-xs'
-                : 'bg-white text-[#111c2d] border-[#dee8ff]'
-            }`}
-          >
-            Non-COD (Tidak Bisa Ditolak)
-          </button>
-        </div>
       </div>
 
       {/* Banner if Order is Rejected via COD */}

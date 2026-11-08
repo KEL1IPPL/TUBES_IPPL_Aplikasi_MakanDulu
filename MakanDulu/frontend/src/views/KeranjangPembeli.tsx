@@ -29,7 +29,7 @@ export const KeranjangPembeli: React.FC<KeranjangPembeliProps> = ({
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('ewallet');
   const [selectedEWallet, setSelectedEWallet] = useState<EWalletProvider>('GoPay');
   const [selectedBank, setSelectedBank] = useState<BankProvider>('Bank BCA');
-  const [hasValidAddress, setHasValidAddress] = useState(true);
+  const hasValidAddress = Boolean(currentAddress.street?.trim());
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [customerNotes, setCustomerNotes] = useState('Mohon sambal dipisah dan perbanyak daun kemangi.');
   const [alertNotice, setAlertNotice] = useState<{ text: string; type: 'error' | 'warning' } | null>(null);
@@ -339,13 +339,6 @@ export const KeranjangPembeli: React.FC<KeranjangPembeliProps> = ({
                   <span className="text-xs font-bold uppercase tracking-wider text-[#5a4138]">
                     Alamat Pengantaran
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setHasValidAddress(!hasValidAddress)}
-                    className="text-xs text-[#a33900] font-bold hover:underline"
-                  >
-                    {hasValidAddress ? 'Simulasi Kosong' : 'Isi Alamat'}
-                  </button>
                 </div>
 
                 <div

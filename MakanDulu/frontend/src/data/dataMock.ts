@@ -16,7 +16,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     tasteCategory: ['pedas', 'gurih'],
     category: 'ayam-bebek',
     description: 'Bebek bumbu rempah hitam Madura dengan lalapan kemangi segar dan sambal mangga muda pedas nampol.',
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBPiG72Q38FemYL6ZrFH7Vi0gDn-PHFpYd00A-JNNwbnhQaQAKY07-RUIMaqhkaXP0rXhIMIlveqvD75an09jKnKyzkvixNTrHopqVQo7wQuXleOjT_hltDauOuX-jA7zwmUPBKLbsTak3pcV4sSTnEWWMlC7xfaK6egNeRIGLkXZ_WtRiJStWL6Ku88kOWy11nt-gtPGUreLc3V38FLCzuQQ4hfQ0WBv-_nMcGNPtOQNGOzxKgcj_r',
+    imageUrl: 'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=600&q=80',
     isAvailable: true,
     salesCount: '1.200+ porsi',
     modifier: 'Pedas Sedang • Sambal Terpisah'
@@ -76,7 +76,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     tasteCategory: ['pedas', 'gurih'],
     category: 'ayam-bebek',
     description: 'Ayam goreng tepung gurih krispi diulek bersama 15 cabai rawit merah dan bawang putih harum.',
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDGnUU6KkMBobd760KImT7NQHlfxT1s29wNXzzbVRf4bVnKer24_TiJ6CsGyhf8COQKEmb60CL82DFxUTemuGfmfwLgxY2hN1_-69XlIuJOQ4B9nhW_N8s56Lmv2cRTuryOVTjZkaK-LPlu2HVrZ9HsbKdg6G9VZ6B8iztFBs1dKkHyBvYWF5_pWAbnA5ckMbzBiqbcJtweusfdXYWnROfRflknSCbohN8YA5qD6rVAKp4Z54GhJUFT',
+    imageUrl: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=600&q=80',
     isAvailable: true,
     salesCount: '850+ porsi',
     modifier: 'Level 5 Pedas Mantap'
@@ -96,7 +96,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     tasteCategory: ['gurih', 'pedas', 'rempah'],
     category: 'ayam-bebek',
     description: 'Nasi liwet gurih beraroma kemangi dengan isian cumi asin empuk tumis cabai hijau pedas gurih.',
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBg05MJHoAovPKLNRhZjwqPLZEPnrD-sw2NDz1FWeLWVQfSZ9FO2puqJDWCrYkWs7v5LQ8cnopBYz3La_K5Jfy37aw2HxUJOFfHPExwrleFW6nXKTloUBnAVky4JCjKKK1qVDV_WQK7LjCYxPYPRSFnIukjTsFHsb_L5W_SoS60eJ13_HumR_pVFr6WTKAVnh9rR0q5WLWDloqfI-TBReRIHnE0jURFDFWBloAtFreoIGaoY5vCtviL',
+    imageUrl: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=600&q=80',
     isAvailable: true,
     salesCount: '530+ porsi',
     modifier: 'Aroma Kemangi Bakar'
@@ -116,7 +116,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     tasteCategory: ['asam', 'manis'],
     category: 'minuman',
     description: 'Pelepas dahaga pedas dengan perasan jeruk murni, madu hutan, dan biji selasih kenyal.',
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDliQUW19VuA7ybTYtC-xFwgkAkUGmAe3_0TA70zkblDHExODFg5iE5r-GLyRfv9ohfHBJrkh5MKry0lLqS39dH8iLuS-g5CkCvlg69CytkSQlwIVhRTBOgsyi28KEolVpJnjMyIz_fFUo3vG6qXgCep1KO43iylMos9rdC2BJ63FRYOsbnV6Psii4yzSttXJhFAQnwpXb3HzN7RbcTFfR0Fg5UYKZ75kEy7hYNwK0_Gjsa5pVDQZe8',
+    imageUrl: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80',
     isAvailable: true,
     salesCount: '1.400+ gelas',
     modifier: 'Kurang Manis • Es Sedang'
@@ -156,7 +156,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     tasteCategory: ['gurih'],
     category: 'camilan',
     description: 'Martabak telur renyah 3 butir bebek dengan daging cincang bumbu kari gurih dan kuah cuka acar.',
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA3ZFqPohF7nfT5-Jr6tWAQTUhYyZ0gacfORiI08a5AY--NuBLidk5_Vhib-frFhHr0o0je4ssv03XB0sY5GJl_Knl2hYr0whT1IJneV8JkEUKYfPn9pUZrH3dKqaAU3_RyBYsuPPWvxEXSiTc-4JptXr3ZpZ0WAwtRS0DokGEuycwDtSnr0csQ8sA6my3yXKwzN4OGc7UwuEFP_AhpvORGKDDXEdZwWC0MUXnMmcXOsyFcpMO5WHz7',
+    imageUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80',
     isAvailable: false,
     salesCount: '920+ porsi',
     modifier: 'Daging Sapi Cincang'
@@ -497,9 +497,9 @@ export const DEFAULT_DELIVERY_ADDRESS: DeliveryAddress = {
   notes: 'Titip di resepsionis'
 };
 
-export const LOGO_URL = 'https://lh3.googleusercontent.com/aida/AEtjO1XEBdpw_XqkyvttKeZepdMk1qyJqZsEhTWdaOWRkfAj1nwJU9Vklnm35mLSp7joVZyIz9arVk2ZVfpEwPG5VhfOmQPUcVFJIaiMyPvLnWiQytrT2Km60A-E6LrCktMV88ZB1VltyX4-qoPKtgchIqDPoqdi0LHwtMNOTQ4zuQXpIHeqe-3ezsu9uxLBSQx2jRGnNJAqjo0_1DiyKE4hw8RKAQrUVQSdsQED3GFC_YHrqB-s0Ts7mGpnLB8';
+export const LOGO_URL = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none"><rect width="100" height="100" rx="24" fill="%23cc4900"/><path d="M26 44c0-10 8-18 18-18h12c10 0 18 8 18 18v14H26V44zm-6 20h60a4 4 0 014 4v2a2 2 0 01-2 2H18a2 2 0 01-2-2v-2a4 4 0 014-4z" fill="%23ffffff"/><circle cx="50" cy="18" r="5" fill="%23ffdbce"/></svg>';
 
-export const SITI_AVATAR_URL = 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1FcdqfTH5oxi-Js7gv_g0N0wK2RIiVuH4dribj3RB0Sls2P4tuvFFw07GnMYJuGvMEbTeU7nECn55ORUNnlF3mevx1wOY8D4yYbtT9faoXFwimt6lWNOqg7TbC-BSr4sT94lShDHlOfgmqK8UiK4PFMZSkdwUPXSko-pibpWKnnh-w3zjrnuIYMaKPnVA_gH5ALRshcLnYnVd3809RwncG7fDgLyY-MpSRIRqaAznybSmqP9EfCOF';
+export const SITI_AVATAR_URL = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80';
 
 export const COURIER_AVATAR_URL = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
 export const POD_PHOTO_URL = 'https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&w=600&q=80';

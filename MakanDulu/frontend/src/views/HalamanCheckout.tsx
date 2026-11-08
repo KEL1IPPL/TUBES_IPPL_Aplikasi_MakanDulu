@@ -41,7 +41,6 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
   const [alamatTervalidasi, setAlamatTervalidasi] = useState(true);
   const [sedangProsesPesanan, setSedangProsesPesanan] = useState(false);
   const [pemberitahuanPeringatan, setPemberitahuanPeringatan] = useState<{ teks: string; tipe: 'error' | 'warning' } | null>(null);
-  const [simulasiHasilPencarianKosong, setSimulasiHasilPencarianKosong] = useState(false);
 
   // Status Modal Peringatan Ganti Toko (1 Toko per Pesanan)
   const [modalGantiToko, setModalGantiToko] = useState<{
@@ -163,44 +162,6 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
     } else {
       showToast('Kupon Dilepas', 'Potongan diskon 35% dibatalkan.');
     }
-  };
-
-  // Simulator pengujian UC #6 & UC #7
-  const pemicuPencarianKosong = () => {
-    setSimulasiHasilPencarianKosong(true);
-    showToast('Simulasi Pencarian Kosong', 'Sistem mensimulasikan hasil pencarian menu tidak ditemukan.');
-  };
-
-  const pemicuPeringatanPesanan = (tipe: 'stok' | 'tutup' | 'alamat') => {
-    if (tipe === 'stok') {
-      setPemberitahuanPeringatan({
-        teks: '<strong>Pemberitahuan Dapur:</strong> Stok Bebek Madura pedas habis! Sistem menyesuaikan ketersediaan.',
-        tipe: 'error'
-      });
-      showToast('Peringatan Stok', 'Stok menu terpilih sedang habis.', true);
-    } else if (tipe === 'tutup') {
-      setPemberitahuanPeringatan({
-        teks: '<strong>Resto Tutup Sementara:</strong> Jam operasional resto mitra telah berakhir.',
-        tipe: 'warning'
-      });
-      showToast('Resto Tutup', 'Resto tidak menerima pesanan saat ini.', true);
-    } else {
-      setAlamatTervalidasi(false);
-      setPemberitahuanPeringatan({
-        teks: '<strong>Alamat Kosong:</strong> Tentukan alamat pengantaran sebelum melanjutkan checkout.',
-        tipe: 'error'
-      });
-      showToast('Alamat Belum Lengkap', 'Silakan lengkapi alamat tujuan.', true);
-    }
-  };
-
-  const resetSemuaSimulasi = () => {
-    setSimulasiHasilPencarianKosong(false);
-    setPemberitahuanPeringatan(null);
-    setAlamatTervalidasi(true);
-    setKataKunciPencarian('');
-    setFilterKategoriAktif('all');
-    showToast('Simulasi Direset', 'Kondisi aplikasi dikembalikan ke status normal.');
   };
 
   const kirimPesananSelesai = () => {
@@ -332,20 +293,8 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
     ? menuSesuaiPreferensi
     : menuList.filter((x) => x.rating >= 4.8).slice(0, 4);
 
-  // Randomisasi menu seluruh mitra resto
-  const [benihAcak, setBenihAcak] = useState(1);
-  const menuAcakToko = React.useMemo(() => {
-    const salinan = [...menuList];
-    return salinan.sort((a, b) => {
-      const hashA = ((a.id.charCodeAt(a.id.length - 1) * 37) + (a.name.charCodeAt(0) * 19) + benihAcak * 13) % 97;
-      const hashB = ((b.id.charCodeAt(b.id.length - 1) * 37) + (b.name.charCodeAt(0) * 19) + benihAcak * 13) % 97;
-      return hashA - hashB;
-    });
-  }, [menuList, benihAcak]);
-
   // Menu tersaring pencarian & tombol filter
-  const menuTersaring = menuAcakToko.filter((item) => {
-    if (simulasiHasilPencarianKosong) return false;
+  const menuTersaring = menuList.filter((item) => {
     const cocokPencarian =
       !kataKunciPencarian.trim() ||
       item.name.toLowerCase().includes(kataKunciPencarian.toLowerCase()) ||
@@ -371,112 +320,48 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
   return (
     <div className="flex flex-col w-full relative">
       {/* ========================================================================= */}
-      {/* 1. BILAH PENCARIAN & FILTER DI BAWAH MENU BAR (STICKY, TIDAK IKUT TURUN KETIKA DI-SCROLL) */}
+      {/* 1. BILAH PENCARIAN DI BAWAH MENU BAR (STICKY, TIDAK IKUT TURUN KETIKA DI-SCROLL) */}
       {/* ========================================================================= */}
       <div className="sticky top-[112px] z-30 bg-[#f9f9ff]/95 backdrop-blur-xl border-b border-[#dee8ff] py-3 px-4 sm:px-6 lg:px-12 shadow-sm transition-all">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2.5">
+        <div className="max-w-7xl mx-auto flex items-center gap-2 sm:gap-3">
           {/* Baris Input Pencarian */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="relative flex-1">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5a4138]">
-                search
-              </span>
-              <input
-                type="text"
-                value={kataKunciPencarian}
-                onChange={(e) => {
-                  setKataKunciPencarian(e.target.value);
-                  if (simulasiHasilPencarianKosong) setSimulasiHasilPencarianKosong(false);
-                }}
-                placeholder="Cari makanan favorit, bebek bumbu hitam, bakso, nama resto..."
-                className="w-full pl-11 pr-10 py-2.5 bg-white text-[#111c2d] rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#cc4900] transition-all border border-[#dee8ff] shadow-2xs"
-              />
-              {kataKunciPencarian && (
-                <button
-                  onClick={() => {
-                    setKataKunciPencarian('');
-                    if (simulasiHasilPencarianKosong) setSimulasiHasilPencarianKosong(false);
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a4138] hover:text-[#111c2d] p-1 rounded-full transition-colors"
-                  title="Bersihkan Pencarian"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-base">close</span>
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (!kataKunciPencarian.trim()) {
-                  showToast('Input Kosong', 'Ketik kata kunci nama makanan atau resto.', true);
-                } else {
-                  showToast('Pencarian Diproses', `Mencari menu '${kataKunciPencarian}' dari resto terdekat...`);
-                }
-              }}
-              className="px-4 sm:px-5 py-2.5 bg-[#a33900] text-white rounded-2xl text-xs sm:text-sm font-bold hover:bg-[#cc4900] shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
-            >
-              <span className="material-symbols-outlined text-base">manage_search</span>
-              <span className="hidden sm:inline">Cari Makanan</span>
-            </button>
-
-            {/* Quick Button ke Checkout */}
-            {onNavigateToCartCheckout && (
+          <div className="relative flex-1">
+            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5a4138]">
+              search
+            </span>
+            <input
+              type="text"
+              value={kataKunciPencarian}
+              onChange={(e) => setKataKunciPencarian(e.target.value)}
+              placeholder="Cari makanan favorit, bebek bumbu hitam, bakso, nama resto..."
+              className="w-full pl-11 pr-10 py-2.5 bg-white text-[#111c2d] rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#cc4900] transition-all border border-[#dee8ff] shadow-2xs"
+            />
+            {kataKunciPencarian && (
               <button
+                onClick={() => setKataKunciPencarian('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a4138] hover:text-[#111c2d] p-1 rounded-full transition-colors"
+                title="Bersihkan Pencarian"
                 type="button"
-                onClick={onNavigateToCartCheckout}
-                className="px-3.5 py-2.5 bg-[#f0f3ff] hover:bg-[#ffdbce] text-[#a33900] rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 border border-[#dee8ff] shrink-0"
-                title="Buka Halaman Checkout Lengkap"
               >
-                <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
-                <span className="hidden md:inline">Checkout</span>
-                {totalJumlahItem > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-[#cc4900] text-white text-[10px] font-bold flex items-center justify-center">
-                    {totalJumlahItem}
-                  </span>
-                )}
+                <span className="material-symbols-outlined text-base">close</span>
               </button>
             )}
           </div>
 
-          {/* Baris Filter Chips Cepat */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-            {[
-              { id: 'all', label: 'Semua Kategori' },
-              { id: 'promo', label: 'Promo Diskon Penjual 🔥', icon: 'local_fire_department' },
-              { id: 'ayam-bebek', label: 'Ayam & Bebek', icon: 'restaurant' },
-              { id: 'sambal', label: 'Aneka Sambal', icon: 'whatshot' },
-              { id: 'mie-bakso', label: 'Mie & Bakso', icon: 'ramen_dining' },
-              { id: 'rating', label: 'Rating 4.8+', icon: 'star' },
-              { id: 'harga', label: 'Harga < Rp 30.000' }
-            ].map((chip) => {
-              const aktif = filterKategoriAktif === chip.id;
-              return (
-                <button
-                  key={chip.id}
-                  onClick={() => {
-                    setFilterKategoriAktif(chip.id);
-                    setSimulasiHasilPencarianKosong(false);
-                    showToast('Filter Diterapkan', `Katalog disaring berdasarkan ${chip.label}.`);
-                  }}
-                  type="button"
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all flex items-center gap-1 shrink-0 ${
-                    aktif
-                      ? 'bg-[#a33900] text-white shadow-xs'
-                      : 'bg-white text-[#5a4138] hover:bg-[#e7eeff] border border-[#dee8ff]'
-                  }`}
-                >
-                  {chip.icon && (
-                    <span className="material-symbols-outlined text-xs">
-                      {chip.icon}
-                    </span>
-                  )}
-                  <span>{chip.label}</span>
-                </button>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (!kataKunciPencarian.trim()) {
+                showToast('Input Kosong', 'Ketik kata kunci nama makanan atau resto.', true);
+              } else {
+                showToast('Pencarian Diproses', `Mencari menu '${kataKunciPencarian}' dari resto terdekat...`);
+              }
+            }}
+            className="px-4 sm:px-5 py-2.5 bg-[#a33900] text-white rounded-2xl text-xs sm:text-sm font-bold hover:bg-[#cc4900] shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
+          >
+            <span className="material-symbols-outlined text-base">manage_search</span>
+            <span className="hidden sm:inline">Cari Makanan</span>
+          </button>
         </div>
       </div>
 
@@ -490,7 +375,7 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-2.5 py-0.5 rounded-full bg-[#cc4900] text-white text-[11px] font-bold flex items-center gap-1 shadow-2xs">
-                    <span className="material-symbols-outlined text-xs">auto_awesome</span>
+                    <span className="material-symbols-outlined text-xs">recommend</span>
                     Rekomendasi Pilihan Untuk Anda
                   </span>
                   {seleraDipilihPengguna.map((t) => (
@@ -802,45 +687,6 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
         </div>
       )}
 
-      {/* Simulator Strip (UC #6 & UC #7 Testing) */}
-      <div className="w-full bg-[#dee8ff] px-4 sm:px-6 lg:px-12 py-2 border-b border-[#cfdaf2]">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-[#cc4900] text-[#fffbff] text-[10px] uppercase tracking-wider font-bold">
-              Simulator Skenario UC #6 & UC #7
-            </span>
-            <span className="text-[#5a4138] hidden md:inline">
-              Simulasi cepat kendala stok, status toko, atau hasil pencarian kosong:
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              onClick={pemicuPencarianKosong}
-              type="button"
-              className="px-2.5 py-1 bg-white text-[#111c2d] hover:bg-[#f0f3ff] font-semibold rounded-lg shadow-2xs border border-[#cfdaf2] flex items-center gap-1"
-            >
-              <span className="material-symbols-outlined text-xs">search_off</span>
-              Pencarian Kosong
-            </button>
-            <button
-              onClick={() => pemicuPeringatanPesanan('stok')}
-              type="button"
-              className="px-2.5 py-1 bg-white text-[#ba1a1a] hover:bg-[#ffdad6] font-semibold rounded-lg shadow-2xs border border-[#ffb4ab] flex items-center gap-1"
-            >
-              <span className="material-symbols-outlined text-xs">warning</span>
-              Stok Habis
-            </button>
-            <button
-              onClick={resetSemuaSimulasi}
-              type="button"
-              className="px-2.5 py-1 bg-[#006c49] text-white font-semibold rounded-lg shadow-2xs hover:bg-[#005236] flex items-center gap-1"
-            >
-              <span className="material-symbols-outlined text-xs">restart_alt</span>
-              Reset
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Konteks Alamat & Metode Pembayaran Ringkas */}
       <div className="w-full bg-white shadow-2xs border-b border-[#dee8ff]">
@@ -907,7 +753,7 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
               <span className="w-2.5 h-6 rounded-full bg-[#cc4900]"></span>
               <div>
                 <h2 className="text-lg font-extrabold text-[#111c2d]">
-                  {filterKategoriAktif === 'promo' ? '🔥 Promo Diskon Spesial Mitra Penjual' : 'Semua Menu Lezat Pilihan (Acak dari Berbagai Mitra Toko)'}
+                  {filterKategoriAktif === 'promo' ? '🔥 Promo Diskon Spesial Mitra Penjual' : 'Semua Menu'}
                 </h2>
                 <span className="text-xs text-[#5a4138]">
                   Menampilkan hidangan populer dari berbagai resto mitra. Klik nama toko pada setiap menu untuk melihat profil resto.
@@ -915,19 +761,6 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setBenihAcak((prev) => prev + 1);
-                  showToast('Menu Diacak Ulang', 'Daftar menu dari mitra resto telah diacak kembali.');
-                }}
-                className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#f0f3ff] text-[#111c2d] text-xs font-bold border border-[#dee8ff] transition-all flex items-center gap-1 shadow-2xs"
-              >
-                <span className="material-symbols-outlined text-sm">shuffle</span>
-                <span>Acak Menu Toko</span>
-              </button>
-            </div>
           </div>
 
           {/* Grid Menu Utama (Spacious Responsive Grid) */}

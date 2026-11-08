@@ -99,7 +99,7 @@ export default function AplikasiUtama() {
   // Status modal alamat
   const [modalAlamatTerbuka, setModalAlamatTerbuka] = useState(false);
 
-  // Tes koneksi frontend ke backend
+  //cek status api
 useEffect(() => {
   fetch('/api/health')
     .then((response) => {
@@ -117,15 +117,14 @@ useEffect(() => {
     });
 }, []);
 
-  // Sinkronisasi otomatis ke LocalStorage
   useEffect(() => {
     simpanKePenyimpanan(KUNCI_STORAGE.TAHAP_APLIKASI, tahapAplikasi);
   }, [tahapAplikasi]);
-
+  
   useEffect(() => {
     simpanKePenyimpanan(KUNCI_STORAGE.PERAN, peranPengguna);
   }, [peranPengguna]);
-
+  
   useEffect(() => {
     simpanKePenyimpanan(KUNCI_STORAGE.PROFIL, profilPengguna);
   }, [profilPengguna]);
@@ -252,28 +251,6 @@ useEffect(() => {
         ? 'Resto kini menerima pesanan makanan dari pelanggan.'
         : 'Resto ditutup. Pembeli tidak dapat membuat pesanan baru saat ini.'
     );
-  };
-
-  // Handler tambah menu langsung dari Asisten AI
-  const tanganiTambahMenuDariAI = (itemMenu: MenuItem) => {
-    setKeranjang((sebelumnya) => {
-      const itemAda = sebelumnya.find((x) => x.menuId === itemMenu.id);
-      if (itemAda) {
-        return sebelumnya.map((x) => (x.menuId === itemMenu.id ? { ...x, qty: x.qty + 1 } : x));
-      }
-      return [
-        ...sebelumnya,
-        {
-          id: `cart-${Date.now()}-${itemMenu.id}`,
-          menuId: itemMenu.id,
-          name: itemMenu.name,
-          price: itemMenu.price,
-          qty: 1,
-          sublabel: itemMenu.modifier || 'Porsi Reguler',
-          restaurant: itemMenu.restaurant
-        }
-      ];
-    });
   };
 
   // Handler reset semua data simulasi ke kondisi awal

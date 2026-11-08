@@ -146,22 +146,6 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
 
-            {/* Tombol Preferensi Rasa (Khusus Pembeli) */}
-            {userRole === 'Pembeli' && onOpenPreferenceModal && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenPreferenceModal();
-                }}
-                className="w-7 h-7 rounded-xl bg-[#ffdbce] hover:bg-[#a33900] text-[#a33900] hover:text-white transition-all flex items-center justify-center shrink-0 shadow-2xs active:scale-95"
-                title="Ubah Preferensi Selera Makanan"
-                aria-label="Ubah Preferensi Makanan"
-              >
-                <span className="material-symbols-outlined text-base">arrow_forward</span>
-              </button>
-            )}
-
             {/* Menu Dropdown Arrow */}
             <button
               type="button"
@@ -249,11 +233,11 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. BARIS KEDUA: BAR MENU (KATALOG MENU, CHECKOUT, PENGIRIMAN) */}
+      {/* 2. BARIS KEDUA: BAR MENU (KATALOG MENU, PENGIRIMAN) */}
       {/* ========================================================================= */}
       <div className="h-12 w-full px-4 sm:px-6 lg:px-10 bg-[#f0f3ff] border-t border-[#dee8ff]/80 flex items-center justify-start overflow-x-auto gap-2">
         {userRole === 'Pembeli' ? (
-          /* Menu Bar Pembeli: Katalog Menu, Checkout, Pengiriman */
+          /* Menu Bar Pembeli: Katalog Menu, Pengiriman */
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActivePembeliTab('katalog')}
@@ -265,27 +249,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <span className="material-symbols-outlined text-base">restaurant_menu</span>
               <span>Katalog Menu</span>
-            </button>
-
-            <button
-              onClick={() => setActivePembeliTab('keranjang')}
-              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                activePembeliTab === 'keranjang'
-                  ? 'bg-[#cc4900] text-white shadow-xs'
-                  : 'text-[#5a4138] hover:text-[#111c2d] hover:bg-[#dee8ff]'
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">shopping_cart_checkout</span>
-              <span>Checkout</span>
-              {cartItemCount > 0 && (
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                    activePembeliTab === 'keranjang' ? 'bg-white text-[#cc4900]' : 'bg-[#cc4900] text-white'
-                  }`}
-                >
-                  {cartItemCount}
-                </span>
-              )}
             </button>
 
             <button
@@ -322,7 +285,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-base">receipt_long</span>
-              <span>Menu Pesanan (10 Mnt)</span>
+              <span>Pesanan Masuk</span>
             </button>
 
             <button

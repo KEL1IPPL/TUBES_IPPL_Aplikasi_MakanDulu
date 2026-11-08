@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { UserProfile } from '../../types';
 import { login, registerPembeli, registerPenjual } from '../../services/authService';
 import { AlertBanner, AuthMode, ResetStep } from '../types';
+import { isValidEmail, isValidIndonesianPhoneNumber } from '../validasi';
 
 const registeredEmails = [
   'siti.rahma@domain.com',
@@ -62,6 +63,9 @@ export const useAuthFlow = ({
   const handleLoginSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!loginEmail.trim() || !loginPassword) return showError('Harap masukkan email dan kata sandi akun Anda.');
+    if (!isValidEmail(loginEmail)) {
+      return showError('Format email tidak valid. Pastikan memiliki nama pengguna, satu karakter @, domain, dan ekstensi tanpa spasi.');
+    }
     setIsSubmitting(true);
     clearAlert();
     try {
@@ -91,6 +95,12 @@ export const useAuthFlow = ({
     event.preventDefault();
     if (![custName, custEmail, custPassword, custPhone, custAddress].every(Boolean)) {
       return showError('Semua kolom formulir pendaftaran Pembeli wajib diisi.');
+    }
+    if (!isValidEmail(custEmail)) {
+      return showError('Format email tidak valid. Pastikan memiliki nama pengguna, satu karakter @, domain, dan ekstensi tanpa spasi.');
+    }
+    if (!isValidIndonesianPhoneNumber(custPhone)) {
+      return showError('Nomor tidak valid!');
     }
     if (registeredEmails.includes(custEmail.toLowerCase().trim())) {
       setLoginEmail(custEmail);
@@ -138,6 +148,12 @@ export const useAuthFlow = ({
     event.preventDefault();
     if (![merchOwner, merchStoreName, merchEmail, merchPassword, merchPhone, merchStoreAddress].every(Boolean)) {
       return showError('Semua data usaha dan outlet wajib diisi.');
+    }
+    if (!isValidEmail(merchEmail)) {
+      return showError('Format email tidak valid. Pastikan memiliki nama pengguna, satu karakter @, domain, dan ekstensi tanpa spasi.');
+    }
+    if (!isValidIndonesianPhoneNumber(merchPhone)) {
+      return showError('Nomor handphone harus berupa nomor Indonesia tanpa spasi atau karakter khusus, contoh 6281377654632 atau 083748989875.');
     }
     if (!uploadedNib || !uploadedKtp || !uploadedNpwp) {
       return showError('Harap unggah seluruh berkas legalitas: NIB, KTP Pemilik, dan NPWP.');

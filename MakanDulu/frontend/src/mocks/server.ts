@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { INITIAL_MENU_ITEMS, STORE_PROFILES, AVAILABLE_VOUCHERS } from './src/data/dataMock.ts';
+import { INITIAL_MENU_ITEMS, STORE_PROFILES, AVAILABLE_VOUCHERS } from '../data/dataMock.ts';
 
 dotenv.config();
 
@@ -162,7 +162,7 @@ Keluarkan output murni JSON berformat:
 });
 
 // Menyajikan build file Vite di lingkungan produksi
-const distPath = path.join(__dirname, 'dist');
+const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.static(distPath));
 
 app.get('*', (_req: Request, res: Response) => {
