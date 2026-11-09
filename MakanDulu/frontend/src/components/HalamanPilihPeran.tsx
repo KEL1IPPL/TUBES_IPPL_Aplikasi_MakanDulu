@@ -63,7 +63,6 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
                 </div>
 
                 <div className="mt-6">
-                  <span className="text-[11px] font-mono text-[#5a4138]">ID: ROLE_CUSTOMER</span>
                   <h3 className="text-xl sm:text-2xl font-extrabold text-[#111c2d] mt-1 group-hover:text-[#a33900] transition-colors">
                     Masuk Sebagai Pembeli
                   </h3>
@@ -116,7 +115,6 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
                 </div>
 
                 <div className="mt-6">
-                  <span className="text-[11px] font-mono text-[#5a4138]">ID: ROLE_MERCHANT</span>
                   <h3 className="text-xl sm:text-2xl font-extrabold text-[#111c2d] mt-1 group-hover:text-[#825100] transition-colors">
                     Masuk Sebagai Penjual
                   </h3>
