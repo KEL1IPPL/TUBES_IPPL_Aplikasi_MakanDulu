@@ -14,7 +14,7 @@ const getUserByEmail = async (email, role) => {
   const table = role === 'Pembeli' ? 'Pembeli' : 'Penjual';
   const idColumn = role === 'Pembeli' ? 'idPembeli' : 'idPenjual';
   const [rows] = await db.execute(
-    `SELECT ${idColumn} AS id FROM ${table} WHERE email = ? LIMIT 1`,
+    `SELECT ${idColumn} AS id, password FROM ${table} WHERE email = ? LIMIT 1`,
     [email]
   );
   return rows[0] || null;
@@ -141,6 +141,13 @@ const resetPassword = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Email tidak lagi terdaftar pada akun tersebut.',
+      });
+    }
+
+    if (await bcrypt.compare(newPassword, user.password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password baru tidak boleh sama dengan password yang sedang digunakan.',
       });
     }
 

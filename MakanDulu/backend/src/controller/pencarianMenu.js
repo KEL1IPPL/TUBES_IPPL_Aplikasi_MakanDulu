@@ -31,3 +31,4 @@ const searchMenu = async (req, res) => {
     });
   }
 };
+module.exports = { searchMenu };
