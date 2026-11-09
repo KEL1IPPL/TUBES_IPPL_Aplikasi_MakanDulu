@@ -5,7 +5,15 @@ import { Input, Label, SubmitButton, Textarea } from './FormControls';
 interface Props extends AuthFormProps { values: Record<string, string>; files: Record<string, string | null>; onChange: (field: string, value: string) => void; onFile: (field: string, value: string) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; showToast: (title: string, message: string, isError?: boolean) => void; }
 
 export const SellerRegistrationForm = ({ values, files, onChange, onFile, onSubmit, showToast, isSubmitting, setAuthMode }: Props) => {
-  const documentFields = [['nib', 'NIB Usaha', 'NIB_RestoBebekJuara.pdf', 'description'], ['ktp', 'KTP Pemilik', 'KTP_BudiSantoso.jpg', 'badge'], ['npwp', 'NPWP Usaha', 'NPWP_WarungSelera.pdf', 'receipt']];
+  const [documentValues] = React.useState(() => {
+    const seed = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    return {
+      nib: seed.slice(-13).padStart(13, '0'),
+      ktp: seed.padEnd(16, '0').slice(0, 16),
+      npwp: `${seed}${seed.slice(0, 5)}`.slice(0, 21),
+    };
+  });
+  const documentFields = [['nib', 'NIB Usaha', documentValues.nib, 'description'], ['ktp', 'KTP Pemilik', documentValues.ktp, 'badge'], ['npwp', 'NPWP Usaha', documentValues.npwp, 'receipt']];
   return <form onSubmit={onSubmit} className="space-y-4">
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><Label>Nama Pemilik Usaha *</Label><Input required value={values.owner} onChange={(e) => onChange('owner', e.target.value)} placeholder="Contoh: Budi Santoso" /></div><div><Label>Nama Toko / Restoran *</Label><Input required value={values.store} onChange={(e) => onChange('store', e.target.value)} placeholder="Contoh: Resto Bebek Juara" /></div></div>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><Label>Email Bisnis Restoran *</Label><Input type="email" required value={values.email} onChange={(e) => onChange('email', e.target.value)} placeholder="resto.juara@makan.id" /></div><div><Label>Password Toko *</Label><Input type="password" required value={values.password} onChange={(e) => onChange('password', e.target.value)} placeholder="Minimal 8 karakter" /></div></div>

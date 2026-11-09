@@ -1,14 +1,12 @@
 const express = require('express');
-const {
-  registerBuyer,
-  registerSeller,
-  login,
-} = require('../controller/autentikasiperan');
+const registrasiPengguna = require('./registrasiPengguna');
+const loginPengguna = require('./loginPengguna');
+const passwordReset = require('./passwordReset');
 
 const router = express.Router();
 
-router.post('/register/pembeli', registerBuyer);
-router.post('/register/penjual', registerSeller);
-router.post('/login', login);
+router.use('/register', registrasiPengguna);
+router.use('/login', loginPengguna);
+router.use('/password-reset', passwordReset);
 
 module.exports = router;

@@ -1,4 +1,4 @@
-const db = require('../config/db');
+const db = require('../../backend/src/config/db');
 const bcrypt = require('bcrypt');
 
 const STATUS_PESANAN = [

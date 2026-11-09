@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { UserProfile } from '../../types';
-import { login, registerPembeli, registerPenjual } from '../../services/authService';
+import { registerPembeli, registerPenjual } from '../../services/registrasiPengguna';
+import { login } from '../../services/loginPengguna';
+import {
+  requestPasswordReset,
+  saveNewPassword,
+  verifyPasswordResetOtp,
+} from '../../services/resetPassword';
 import { AlertBanner, AuthMode, ResetStep } from '../types';
 import { isValidEmail, isValidIndonesianPhoneNumber } from '../validasi';
 
@@ -35,6 +41,7 @@ export const useAuthFlow = ({
   const [resetOtp, setResetOtp] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [showResetNewPassword, setShowResetNewPassword] = useState(false);
   const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
   const [custName, setCustName] = useState('');
@@ -183,33 +190,80 @@ export const useAuthFlow = ({
     }
   };
 
-  const handleSendResetOtp = (event: React.FormEvent) => {
+  const handleSendResetOtp = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!resetEmail) return showError('Harap masukkan email akun terdaftar Anda.');
+    if (!isValidEmail(resetEmail)) {
+      return showError('Masukkan email akun yang valid.');
+    }
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false); setResetStep('verify-otp'); setResetOtp('948215');
-      setAlertBanner({ type: 'success', message: `Kode verifikasi OTP 6 digit telah dikirimkan ke '${resetEmail}'. (Gunakan kode demo: 948215)` });
+    clearAlert();
+    try {
+      const data = await requestPasswordReset({
+        email: resetEmail.trim(),
+        role: userRole,
+      });
+      setResetStep('verify-otp');
+      setResetOtp('');
+      setAlertBanner({ type: 'success', message: data.message });
       showToast('Kode OTP Terkirim', `Kode verifikasi reset telah dikirim ke ${resetEmail}.`);
-    }, 700);
+    } catch (error) {
+      console.error('Request reset OTP error:', error);
+      showError(error instanceof Error ? error.message : 'Gagal mengirim kode OTP.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleVerifyOtp = (event: React.FormEvent) => {
+  const handleVerifyOtp = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (resetOtp.length < 6) return showError('Kode OTP harus 6 digit angka.');
+    if (!/^\d{6}$/.test(resetOtp)) return showError('Kode OTP harus 6 digit angka.');
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false); setResetStep('new-password');
-      setAlertBanner({ type: 'success', message: 'Kode OTP terverifikasi! Silakan buat kata sandi baru untuk akun Anda.' });
-    }, 600);
+    clearAlert();
+    try {
+      const data = await verifyPasswordResetOtp({
+        email: resetEmail.trim(),
+        role: userRole,
+        kodeOtp: resetOtp,
+      });
+      if (!data.resetToken) throw new Error('Token reset password tidak diterima.');
+      setResetToken(data.resetToken);
+      setResetStep('new-password');
+      setAlertBanner({ type: 'success', message: data.message });
+    } catch (error) {
+      console.error('Verify reset OTP error:', error);
+      showError(error instanceof Error ? error.message : 'Kode OTP tidak valid.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSaveNewPassword = (event: React.FormEvent) => {
+  const handleSaveNewPassword = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (resetNewPassword.length < 6) return showError('Kata sandi baru minimal 6 karakter.');
+    if (resetNewPassword.length < 8) return showError('Kata sandi baru minimal 8 karakter.');
     if (resetNewPassword !== resetConfirmPassword) return showError('Konfirmasi kata sandi baru tidak cocok.');
-    setLoginEmail(resetEmail); setLoginPassword(resetNewPassword); setAuthMode('login'); setResetStep('input-email');
-    setAlertBanner({ type: 'success', message: 'Kata sandi berhasil diperbarui! Silakan login dengan kata sandi baru Anda.' });
+    setIsSubmitting(true);
+    clearAlert();
+    try {
+      const data = await saveNewPassword({
+        email: resetEmail.trim(),
+        role: userRole,
+        resetToken,
+        newPassword: resetNewPassword,
+      });
+      setLoginEmail(resetEmail);
+      setLoginPassword('');
+      setResetNewPassword('');
+      setResetConfirmPassword('');
+      setResetToken('');
+      setResetStep('input-email');
+      setAuthMode('login');
+      setAlertBanner({ type: 'success', message: data.message });
+    } catch (error) {
+      console.error('Save new password error:', error);
+      showError(error instanceof Error ? error.message : 'Gagal mengubah password.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return {
@@ -217,6 +271,7 @@ export const useAuthFlow = ({
     loginEmail, setLoginEmail, loginPassword, setLoginPassword, showPassword, setShowPassword,
     resetEmail, setResetEmail, resetStep, setResetStep, resetOtp, setResetOtp,
     resetNewPassword, setResetNewPassword, resetConfirmPassword, setResetConfirmPassword,
+    resetToken,
     showResetNewPassword, setShowResetNewPassword, showResetConfirmPassword, setShowResetConfirmPassword,
     custName, setCustName, custEmail, setCustEmail, custPassword, setCustPassword,
     custPhone, setCustPhone, custAddress, setCustAddress, selectedTastes, selectedCategories, selectedDietary,
@@ -230,3 +285,5 @@ export const useAuthFlow = ({
     handleSendResetOtp, handleVerifyOtp, handleSaveNewPassword,
   };
 };
+
+export type AuthFlow = ReturnType<typeof useAuthFlow>;
