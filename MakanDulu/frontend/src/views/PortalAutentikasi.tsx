@@ -306,7 +306,6 @@ export const PortalAutentikasi: React.FC<PortalAutentikasiProps> = ({
                   <span className="px-2 py-0.5 rounded bg-[#ffdbce] text-[#a33900] text-[10px] font-bold uppercase">
                     Konsumen
                   </span>
-                  <span className="text-[#5a4138] text-[11px] font-mono">ID: ROLE_CUSTOMER</span>
                 </div>
                 <h3 className="text-lg font-bold text-[#111c2d] mt-2 group-hover:text-[#a33900] transition-colors">
                   Pembeli (Customer)
@@ -359,7 +358,6 @@ export const PortalAutentikasi: React.FC<PortalAutentikasiProps> = ({
                   <span className="px-2 py-0.5 rounded bg-[#ffddb8] text-[#825100] text-[10px] font-bold uppercase">
                     Mitra Usaha
                   </span>
-                  <span className="text-[#5a4138] text-[11px] font-mono">ID: ROLE_MERCHANT</span>
                 </div>
                 <h3 className="text-lg font-bold text-[#111c2d] mt-2 group-hover:text-[#825100] transition-colors">
                   Penjual (Merchant)
