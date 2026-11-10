@@ -355,9 +355,6 @@ useEffect(() => {
     </div>
   );
 
-  // =========================================================================
-  // 1. TAHAP PERTAMA: Halaman Depan Pemilihan Role
-  // =========================================================================
   if (tahapAplikasi === 'select_role' || !peranPengguna) {
     return (
       <>
@@ -438,9 +435,6 @@ useEffect(() => {
     );
   }
 
-  // =========================================================================
-  // 3. TAHAP KETIGA: Halaman Kerja Workspace (Setelah Berhasil Login / Daftar)
-  // =========================================================================
   return (
     <div className="min-h-screen bg-[#f9f9ff] text-[#111c2d] flex flex-col font-sans">
       {elemenToast}
@@ -469,9 +463,6 @@ useEffect(() => {
       {/* Konten Utama Berdasarkan Peran Pengguna & Tab Aktif */}
       <main className="w-full pt-28 flex-1">
         {peranPengguna === 'Pembeli' ? (
-          /* ========================================= */
-          /* MODE PEMBELI: KATALOG, KERANJANG, & LIVE TRACKING */
-          /* ========================================= */
           <>
             {tabAktifPembeli === 'katalog' && (
               namaTokoDilihat ? (
@@ -559,9 +550,6 @@ useEffect(() => {
             )}
           </>
         ) : (
-          /* ========================================= */
-          /* MODE PENJUAL: MENU PESANAN, KELOLA STOK, & DASHBOARD MERCHANT */
-          /* ========================================= */
           <>
             {tabAktifPenjual === 'pesanan' && (
               <PesananPenjual
