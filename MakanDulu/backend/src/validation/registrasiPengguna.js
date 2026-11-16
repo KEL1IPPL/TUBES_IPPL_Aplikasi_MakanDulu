@@ -10,6 +10,15 @@ const sellerFields = [
   'ktp',
   'npwp',
 ];
+const ALLOWED_DOMAINS = [
+  'gmail.com',
+  'yahoo.com',
+  'yahoo.co.id',
+  'outlook.com',
+  'hotmail.com',
+  'icloud.com',
+];
+
 const isValidName = (name) => {
   if (typeof name !== 'string' || name.trim() === '') {
     return false;
@@ -46,7 +55,7 @@ const isValidEmail = (email) => {
     !username.startsWith('.') &&
     !username.endsWith('.') &&
     !username.includes('..') &&
-    /^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)
+    ALLOWED_DOMAINS.includes(domain)
   );
 };
 

@@ -1,3 +1,12 @@
+export const ALLOWED_DOMAINS = [
+  'gmail.com',
+  'yahoo.com',
+  'yahoo.co.id',
+  'outlook.com',
+  'hotmail.com',
+  'icloud.com',
+] as const;
+
 export const isValidName = (name: string) =>
   /^[a-zA-Z]+(?: [a-zA-Z]+)*$/.test(name.trim()) && name.trim().length >= 3;
 
@@ -26,6 +35,6 @@ export const isValidEmail = (email: string) => {
     !username.startsWith('.') &&
     !username.endsWith('.') &&
     !username.includes('..') &&
-    /^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)
+    ALLOWED_DOMAINS.some((allowedDomain) => allowedDomain === domain)
   );
 };
