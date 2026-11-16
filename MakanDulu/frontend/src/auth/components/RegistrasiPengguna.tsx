@@ -74,7 +74,7 @@ export const RegistrasiPengguna: React.FC<Props> = ({ auth, userRole, showToast 
       }}
       onChange={setSellerField}
       onFile={(field, value) => {
-        const setters: Record<string, (value: string) => void> = {
+        const setters: Record<string, (value: File) => void> = {
           nib: auth.setUploadedNib,
           ktp: auth.setUploadedKtp,
           npwp: auth.setUploadedNpwp,

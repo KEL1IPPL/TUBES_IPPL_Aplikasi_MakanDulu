@@ -26,6 +26,12 @@ export interface SellerRegistrationPayload {
   npwp: string;
 }
 
+export interface SellerLegalFiles {
+  nib: File;
+  ktp: File;
+  npwp: File;
+}
+
 export interface AuthResponse {
   success: boolean;
   message: string;

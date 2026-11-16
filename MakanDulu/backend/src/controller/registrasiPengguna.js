@@ -75,6 +75,22 @@ const registerBuyer = async (req, res) => {
 };
 
 const registerSeller = async (req, res) => {
+  const legalFiles = req.files || {};
+  const requiredLegalFiles = ['nibFile', 'ktpFile', 'npwpFile'];
+  if (
+    requiredLegalFiles.some(
+      (field) =>
+        !Array.isArray(legalFiles[field]) ||
+        legalFiles[field].length !== 1 ||
+        legalFiles[field][0].size === 0
+    )
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Berkas NIB, KTP, dan NPWP wajib diunggah dan tidak boleh kosong.',
+    });
+  }
+
   if (!validateSellerRegistration(req.body)) {
     return res.status(400).json({
       success: false,

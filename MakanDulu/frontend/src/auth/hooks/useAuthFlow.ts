@@ -8,7 +8,12 @@ import {
   verifyPasswordResetOtp,
 } from '../../services/resetPassword';
 import { AlertBanner, AuthMode, ResetStep } from '../types';
-import { isValidEmail, isValidIndonesianPhoneNumber } from '../validasi';
+import {
+  isValidAddress,
+  isValidEmail,
+  isValidIndonesianPhoneNumber,
+  isValidName,
+} from '../validasi';
 
 const registeredEmails = [
   'siti.rahma@domain.com',
@@ -58,9 +63,9 @@ export const useAuthFlow = ({
   const [merchPassword, setMerchPassword] = useState('');
   const [merchPhone, setMerchPhone] = useState('');
   const [merchStoreAddress, setMerchStoreAddress] = useState('');
-  const [uploadedNib, setUploadedNib] = useState<string | null>(null);
-  const [uploadedKtp, setUploadedKtp] = useState<string | null>(null);
-  const [uploadedNpwp, setUploadedNpwp] = useState<string | null>(null);
+  const [uploadedNib, setUploadedNib] = useState<File | null>(null);
+  const [uploadedKtp, setUploadedKtp] = useState<File | null>(null);
+  const [uploadedNpwp, setUploadedNpwp] = useState<File | null>(null);
 
   const showError = (message: string) => setAlertBanner({ type: 'error', message });
   const clearAlert = () => setAlertBanner(null);
@@ -105,6 +110,12 @@ export const useAuthFlow = ({
     }
     if (!isValidEmail(custEmail)) {
       return showError('Format email tidak valid. Pastikan memiliki nama pengguna, satu karakter @, domain, dan ekstensi tanpa spasi.');
+    }
+    if (!isValidName(custName)) {
+      return showError('Nama harus minimal 3 karakter dan hanya boleh berisi huruf serta spasi.');
+    }
+    if (!isValidAddress(custAddress)) {
+      return showError('Alamat harus minimal 10 karakter dan hanya boleh berisi huruf, angka, spasi, koma, atau titik.');
     }
     if (!isValidIndonesianPhoneNumber(custPhone)) {
       return showError('Nomor tidak valid!');
@@ -159,11 +170,26 @@ export const useAuthFlow = ({
     if (!isValidEmail(merchEmail)) {
       return showError('Format email tidak valid. Pastikan memiliki nama pengguna, satu karakter @, domain, dan ekstensi tanpa spasi.');
     }
+    if (!isValidName(merchOwner)) {
+      return showError('Nama pemilik harus minimal 3 karakter dan hanya boleh berisi huruf serta spasi.');
+    }
+    if (!isValidAddress(merchStoreAddress)) {
+      return showError('Alamat toko harus minimal 10 karakter dan hanya boleh berisi huruf, angka, spasi, koma, atau titik.');
+    }
     if (!isValidIndonesianPhoneNumber(merchPhone)) {
       return showError('Nomor handphone harus berupa nomor Indonesia tanpa spasi atau karakter khusus, contoh 6281377654632 atau 083748989875.');
     }
     if (!uploadedNib || !uploadedKtp || !uploadedNpwp) {
       return showError('Harap unggah seluruh berkas legalitas: NIB, KTP Pemilik, dan NPWP.');
+    }
+    if ([uploadedNib, uploadedKtp, uploadedNpwp].some((file) => file.size === 0)) {
+      return showError('Berkas legalitas tidak boleh kosong.');
+    }
+    if ([uploadedNib, uploadedKtp, uploadedNpwp].some((file) => !file.type.startsWith('image/'))) {
+      return showError('Semua berkas legalitas harus berupa gambar.');
+    }
+    if ([uploadedNib, uploadedKtp, uploadedNpwp].some((file) => file.size > 2 * 1024 * 1024)) {
+      return showError('Ukuran setiap berkas legalitas maksimal 2 MB.');
     }
     if (registeredEmails.includes(merchEmail.toLowerCase().trim())) {
       setLoginEmail(merchEmail);
@@ -176,8 +202,8 @@ export const useAuthFlow = ({
       const data = await registerPenjual({
         ownerName: merchOwner.trim(), storeName: merchStoreName.trim(), email: merchEmail.trim(),
         password: merchPassword, phone: merchPhone.trim(), storeAddress: merchStoreAddress.trim(),
-        nib: uploadedNib, ktp: uploadedKtp, npwp: uploadedNpwp,
-      });
+        nib: '1234567890123', ktp: '1234567890123456', npwp: '123456789012345678901',
+      }, { nib: uploadedNib, ktp: uploadedKtp, npwp: uploadedNpwp });
       if (!data.user || !data.token) throw new Error('Respons registrasi Penjual tidak lengkap.');
       localStorage.setItem('makandulu_token', data.token);
       showToast('Pendaftaran Mitra Berhasil!', `Toko ${merchStoreName} langsung aktif dan siap beroperasi.`);
