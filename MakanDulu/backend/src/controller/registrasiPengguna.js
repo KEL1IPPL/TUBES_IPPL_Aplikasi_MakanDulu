@@ -32,6 +32,7 @@ const registerBuyer = async (req, res) => {
       });
     }
 
+    
     const hashedPassword = await bcrypt.hash(password, 12);
     const [hasil] = await db.execute(
       `INSERT INTO Pembeli (email, password, nama, nomorTelepon, alamat)

@@ -40,6 +40,10 @@ const isValidEmail = (email) => {
   );
 };
 
+const isValidPassword = (password) => {
+  return typeof password === 'string' && password.length >= 8;
+};
+
 const hasRequiredStringFields = (data, fields, trimPassword) =>
   fields.every(
     (field) =>
@@ -52,11 +56,13 @@ const hasRequiredStringFields = (data, fields, trimPassword) =>
 const validateBuyerRegistration = (data) =>
   hasRequiredStringFields(data, buyerFields, false) &&
   isValidEmail(data.email) &&
+  isValidPassword(data.password) &&
   isValidIndonesianPhoneNumber(data.phone);
 
 const validateSellerRegistration = (data) =>
   hasRequiredStringFields(data, sellerFields, true) &&
   isValidEmail(data.email) &&
+  isValidPassword(data.password) &&
   isValidIndonesianPhoneNumber(data.phone) &&
   /^\d{13}$/.test(data.nib) &&
   /^\d{16}$/.test(data.ktp) &&
@@ -65,6 +71,7 @@ const validateSellerRegistration = (data) =>
 module.exports = {
   validateBuyerRegistration,
   validateSellerRegistration,
+  isValidPassword,
   isValidIndonesianPhoneNumber,
   isValidEmail,
 };
