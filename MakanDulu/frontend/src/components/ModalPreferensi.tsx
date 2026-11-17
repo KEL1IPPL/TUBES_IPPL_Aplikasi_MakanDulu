@@ -5,7 +5,7 @@ interface PreferenceModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentPreferences: UserPreferences;
-  onSavePreferences: (updated: UserPreferences) => void;
+  onSavePreferences: (updated: UserPreferences) => Promise<void>;
   showToast: (title: string, message: string, isError?: boolean) => void;
 }
 
@@ -19,6 +19,7 @@ export const PreferenceModal: React.FC<PreferenceModalProps> = ({
   const [tastes, setTastes] = useState<string[]>(currentPreferences.tastes || ['pedas', 'gurih']);
   const [categories, setCategories] = useState<string[]>(currentPreferences.categories || ['ayam_bebek', 'nasi_bakar']);
   const [dietary, setDietary] = useState<string[]>(currentPreferences.dietary || ['aman_lambung']);
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
 
@@ -59,7 +60,7 @@ export const PreferenceModal: React.FC<PreferenceModalProps> = ({
     setDietary((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (tastes.length === 0 && categories.length === 0) {
       showToast('Pilih Minimal 1', 'Pilih minimal satu cita rasa atau kategori kuliner.', true);
       return;
@@ -69,9 +70,20 @@ export const PreferenceModal: React.FC<PreferenceModalProps> = ({
       categories,
       dietary
     };
-    onSavePreferences(updated);
-    showToast('Preferensi Diperbarui!', 'Rekomendasi menu di beranda langsung disesuaikan dengan selera Anda.');
-    onClose();
+    setIsSaving(true);
+    try {
+      await onSavePreferences(updated);
+      showToast('Preferensi Diperbarui!', 'Rekomendasi menu di beranda langsung disesuaikan dengan selera Anda.');
+      onClose();
+    } catch (error) {
+      showToast(
+        'Gagal Menyimpan Preferensi',
+        error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan preferensi.',
+        true
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -215,9 +227,10 @@ export const PreferenceModal: React.FC<PreferenceModalProps> = ({
           <button
             type="button"
             onClick={handleSave}
+            disabled={isSaving}
             className="px-6 py-2.5 rounded-xl bg-[#a33900] hover:bg-[#cc4900] text-white text-xs font-bold shadow-md transition-all flex items-center gap-2 active:scale-95"
           >
-            <span>Simpan & Terapkan ke Beranda</span>
+            <span>{isSaving ? 'Menyimpan...' : 'Simpan & Terapkan ke Beranda'}</span>
             <span className="material-symbols-outlined text-base">check</span>
           </button>
         </div>

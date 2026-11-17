@@ -3,6 +3,7 @@ const cors = require('cors');
 const menuRoutes = require('./routes/pencarianMenu');
 require('dotenv').config();
 const authRoutes = require('./routes/autentikasiperan');
+const preferenceRoutes = require('./routes/halaman_preferensi_makanan');
 const { verifikasiMailer } = require('./config/mailer');
 
 if (!process.env.JWT_SECRET) {
@@ -30,6 +31,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
+app.use('/api/halaman-preferensi-makanan', preferenceRoutes);
 
 app.listen(PORT, async () => {
   console.log(`Backend berjalan di http://localhost:${PORT}`);

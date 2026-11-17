@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { UserProfile } from '../../types';
 import { registerPembeli, registerPenjual } from '../../services/registrasiPengguna';
 import { login } from '../../services/loginPengguna';
+import { usePreferensiMakanan } from '../../hooks/usePreferensiMakanan';
 import {
   requestPasswordReset,
   saveNewPassword,
@@ -33,6 +34,7 @@ export const useAuthFlow = ({
   onAuthSuccess,
   showToast,
 }: UseAuthFlowProps) => {
+  const { simpan: simpanPreferensi } = usePreferensiMakanan();
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertBanner, setAlertBanner] = useState<AlertBanner>(null);
@@ -145,9 +147,14 @@ export const useAuthFlow = ({
     }
   };
 
-  const handleSavePreferences = () => {
+  const handleSavePreferences = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      await simpanPreferensi({
+        tastes: selectedTastes,
+        categories: selectedCategories,
+        dietary: selectedDietary,
+      });
       const profile: UserProfile = {
         name: custName || 'Siti Rahmawati', email: custEmail || 'siti.rahma@domain.com',
         phone: custPhone || '0812-3456-7890',
@@ -159,7 +166,11 @@ export const useAuthFlow = ({
       setIsSubmitting(false);
       showToast('Pendaftaran Berhasil!', `Selamat datang di MakanDulu, ${custName || 'Sahabat Kuliner'}!`);
       onAuthSuccess('Pembeli', profile);
-    }, 700);
+    } catch (error) {
+      console.error('Save preferences error:', error);
+      showError(error instanceof Error ? error.message : 'Preferensi makanan gagal disimpan.');
+      setIsSubmitting(false);
+    }
   };
 
   const handleSellerRegistration = async (event: React.FormEvent<HTMLFormElement>) => {

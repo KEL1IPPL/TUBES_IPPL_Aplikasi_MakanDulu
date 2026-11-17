@@ -24,7 +24,7 @@ import {
   KUNCI_STORAGE
 } from './utils/penyimpananLokal';
 import { NavigasiAtas } from './components/NavigasiAtas';
-import { HalamanPilihPeran } from './components/HalamanPilihPeran';
+import { HalamanPilihPeran } from './components/halaman_utama';
 import { AlurAutentikasiPeran } from './views/AlurAutentikasiPeran';
 import { ModalAlamat } from './components/ModalAlamat';
 import { ModalPreferensi } from './components/ModalPreferensi';
@@ -37,8 +37,10 @@ import { DashboardPenjual } from './views/DashboardPenjual';
 import { PesananPenjual } from './views/PesananPenjual';
 import { KelolaStokPenjual } from './views/KelolaStokPenjual';
 import { ProfilToko } from './views/ProfilToko';
+import { usePreferensiMakanan } from './hooks/usePreferensiMakanan';
 
 export default function AplikasiUtama() {
+  const { simpan: simpanPreferensi } = usePreferensiMakanan();
   // Tahap Aplikasi: 'select_role' (Halaman Depan) -> 'auth' (Daftar / Login) -> 'app' (Workspace)
   const [tahapAplikasi, setTahapAplikasi] = useState<'select_role' | 'auth' | 'app'>(() =>
     muatDariPenyimpanan(KUNCI_STORAGE.TAHAP_APLIKASI, 'select_role')
@@ -597,7 +599,8 @@ useEffect(() => {
           isOpen={modalPreferensiTerbuka}
           onClose={() => setModalPreferensiTerbuka(false)}
           currentPreferences={profilPengguna.preferences}
-          onSavePreferences={(preferensiDiperbarui) => {
+          onSavePreferences={async (preferensiDiperbarui) => {
+            await simpanPreferensi(preferensiDiperbarui);
             setProfilPengguna((sebelumnya) =>
               sebelumnya ? { ...sebelumnya, preferences: preferensiDiperbarui } : null
             );

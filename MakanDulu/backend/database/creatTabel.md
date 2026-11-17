@@ -56,12 +56,16 @@ CREATE TABLE Menu (
 CREATE TABLE PreferensiMakanan (
     idPreferensi INT AUTO_INCREMENT PRIMARY KEY,
     idPembeli INT NOT NULL,
-    rasaFavorit VARCHAR(10),
-    kategoriFavorit VARCHAR(20),
+    rasaFavorit TEXT NOT NULL,
+    kategoriFavorit TEXT NOT NULL,
+    polaMakan TEXT NOT NULL,
+    waktuDiubah DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_preferensi_pembeli
         FOREIGN KEY (idPembeli) REFERENCES Pembeli(idPembeli)
-        ON UPDATE CASCADE ON DELETE CASCADE
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT uq_preferensi_pembeli UNIQUE (idPembeli)
 );
 
 CREATE TABLE Keranjang (
