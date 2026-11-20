@@ -37,6 +37,7 @@ export interface Voucher {
   expiryDate: string;
   tag: string;
   storeExclusive?: string;
+  isActive?: boolean;
 }
 
 export interface StoreProfile {

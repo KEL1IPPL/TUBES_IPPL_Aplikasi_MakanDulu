@@ -1,11 +1,9 @@
 const express = require('express');
 const {
   requestPasswordReset,
-} = require('../controller/otp');
-const {
   verifyPasswordResetOtp,
   resetPassword,
-} = require('../controller/resetPassword');
+} = require('../controller/reset_password_controller');
 
 const router = express.Router();
 

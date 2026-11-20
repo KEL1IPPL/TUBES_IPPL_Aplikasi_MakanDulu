@@ -25,13 +25,14 @@ import {
 } from './utils/penyimpananLokal';
 import { NavigasiAtas } from './components/NavigasiAtas';
 import { HalamanPilihPeran } from './components/halaman_utama';
-import { AlurAutentikasiPeran } from './views/AlurAutentikasiPeran';
+import HalamanLoginPenjualPembeli from './components/halaman_login_penjual_pembeli';
+import HalamanRegistrasiPenjualPembeli from './components/halaman_registrasi_penjual_pembeli';
+import HalamanResetPassword from './components/halaman_reset_password';
 import { ModalAlamat } from './components/ModalAlamat';
 import { ModalPreferensi } from './components/ModalPreferensi';
 import { ModalProfil } from './components/ModalProfil';
 import { HalamanCheckout } from './views/HalamanCheckout';
 import { KeranjangPembeli } from './views/KeranjangPembeli';
-import { PortalAutentikasi } from './views/PortalAutentikasi';
 import { PelacakanPesanan } from './views/PelacakanPesanan';
 import { DashboardPenjual } from './views/DashboardPenjual';
 import { PesananPenjual } from './views/PesananPenjual';
@@ -70,7 +71,7 @@ export default function AplikasiUtama() {
   // Tab aktif ruang kerja
   const [tabAktifPembeli, setTabAktifPembeli] = useState<PembeliTab>('katalog');
   const [tabAktifPenjual, setTabAktifPenjual] = useState<PenjualTab>('pesanan');
-  const [modalPortalTerbuka, setModalPortalTerbuka] = useState(false);
+  const [modeAutentikasi, setModeAutentikasi] = useState<'login' | 'register' | 'reset'>('login');
 
   // Status modal preferensi & profil
   const [modalPreferensiTerbuka, setModalPreferensiTerbuka] = useState(false);
@@ -366,37 +367,14 @@ useEffect(() => {
           onSelectRole={(role) => {
             setPeranPengguna(role);
             setTahapAplikasi('auth');
+            setModeAutentikasi('login');
           }}
-          onOpenPortalModal={() => setModalPortalTerbuka(true)}
+          onOpenPortalModal={() => {
+            setPeranPengguna('Pembeli');
+            setTahapAplikasi('auth');
+            setModeAutentikasi('login');
+          }}
         />
-
-        {/* Portal Auth Modal Simulator */}
-        {modalPortalTerbuka && (
-          <div className="fixed inset-0 z-50 bg-[#111c2d]/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-            <div className="relative bg-[#f9f9ff] w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#dee8ff]">
-              <button
-                onClick={() => setModalPortalTerbuka(false)}
-                className="absolute right-6 top-6 w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#5a4138] hover:text-[#111c2d] shadow-sm z-20"
-              >
-                <span className="material-symbols-outlined text-xl">close</span>
-              </button>
-              <PortalAutentikasi
-                userRole={peranPengguna || 'Pembeli'}
-                setUserRole={(r) => {
-                  setPeranPengguna(r);
-                  setModalPortalTerbuka(false);
-                }}
-                onNavigateToCatalog={() => {
-                  setModalPortalTerbuka(false);
-                  setPeranPengguna('Pembeli');
-                  setTahapAplikasi('app');
-                  setTabAktifPembeli('katalog');
-                }}
-                showToast={tampilkanToast}
-              />
-            </div>
-          </div>
-        )}
       </>
     );
   }
@@ -406,34 +384,53 @@ useEffect(() => {
   // =========================================================================
   if (tahapAplikasi === 'auth' && peranPengguna) {
     return (
-      <>
+      <div className="min-h-screen bg-[#f9f9ff] py-6">
         {elemenToast}
-
-        <AlurAutentikasiPeran
-          userRole={peranPengguna}
-          onBackToRoleSelect={() => {
-            setPeranPengguna(null);
-            setTahapAplikasi('select_role');
-          }}
-          onAuthSuccess={(role, profil) => {
-            setPeranPengguna(role);
-            if (profil) {
-              setProfilPengguna((prev) => ({
-                ...prev,
-                ...profil,
-                balance: prev?.balance ?? 150000
-              }));
-            }
-            setTahapAplikasi('app');
-            if (role === 'Pembeli') {
-              setTabAktifPembeli('katalog');
-            } else {
-              setTabAktifPenjual('pesanan');
-            }
-          }}
-          showToast={tampilkanToast}
-        />
-      </>
+        <div className="max-w-2xl mx-auto px-4 mb-4">
+          <button
+            type="button"
+            onClick={() => {
+              setPeranPengguna(null);
+              setTahapAplikasi('select_role');
+            }}
+            className="px-4 py-2 rounded-xl bg-white border border-[#dee8ff] text-xs font-bold"
+          >
+            ← Kembali ke Pemilihan Peran
+          </button>
+        </div>
+        {modeAutentikasi === 'login' && (
+          <HalamanLoginPenjualPembeli
+            initialRole={peranPengguna}
+            onSuccess={(role, profil) => {
+              setPeranPengguna(role);
+              setProfilPengguna((prev) => ({ ...prev, ...profil, balance: prev?.balance ?? 150000 }));
+              setTahapAplikasi('app');
+            }}
+            onNavigateToRegister={() => setModeAutentikasi('register')}
+            onNavigateToForgotPassword={() => setModeAutentikasi('reset')}
+            showToast={tampilkanToast}
+          />
+        )}
+        {modeAutentikasi === 'register' && (
+          <HalamanRegistrasiPenjualPembeli
+            initialRole={peranPengguna}
+            onSuccess={(role, profil) => {
+              setPeranPengguna(role);
+              setProfilPengguna((prev) => ({ ...prev, ...profil, balance: prev?.balance ?? 150000 }));
+              setTahapAplikasi('app');
+            }}
+            onNavigateToLogin={() => setModeAutentikasi('login')}
+            showToast={tampilkanToast}
+          />
+        )}
+        {modeAutentikasi === 'reset' && (
+          <HalamanResetPassword
+            role={peranPengguna}
+            onBackToLogin={() => setModeAutentikasi('login')}
+            showToast={tampilkanToast}
+          />
+        )}
+      </div>
     );
   }
 
@@ -456,7 +453,10 @@ useEffect(() => {
         cartItemCount={totalJumlahItemKeranjang}
         hasActiveOrder={pesananSaatIni !== null}
         onLogout={tanganiKeluarKeLanding}
-        onOpenPortalModal={() => setModalPortalTerbuka(true)}
+        onOpenPortalModal={() => {
+          setModeAutentikasi('login');
+          setTahapAplikasi('auth');
+        }}
         userProfile={profilPengguna}
         onOpenProfileModal={() => setModalProfilTerbuka(true)}
         onOpenPreferenceModal={() => setModalPreferensiTerbuka(true)}
@@ -623,33 +623,6 @@ useEffect(() => {
         />
       )}
 
-      {/* Modal Simulator Portal Autentikasi */}
-      {modalPortalTerbuka && (
-        <div className="fixed inset-0 z-50 bg-[#111c2d]/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative bg-[#f9f9ff] w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#dee8ff]">
-            <button
-              onClick={() => setModalPortalTerbuka(false)}
-              className="absolute right-6 top-6 w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#5a4138] hover:text-[#111c2d] shadow-sm z-20"
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
-            <PortalAutentikasi
-              userRole={peranPengguna || 'Pembeli'}
-              setUserRole={(r) => {
-                setPeranPengguna(r);
-                setModalPortalTerbuka(false);
-              }}
-              onNavigateToCatalog={() => {
-                setModalPortalTerbuka(false);
-                setPeranPengguna('Pembeli');
-                setTahapAplikasi('app');
-                setTabAktifPembeli('katalog');
-              }}
-              showToast={tampilkanToast}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

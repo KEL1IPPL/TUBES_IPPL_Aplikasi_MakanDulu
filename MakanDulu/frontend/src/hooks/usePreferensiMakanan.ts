@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { UserPreferences } from '../types';
-import { simpanPreferensiMakanan } from '../services/preferensiMakanan';
+import { simpanPreferensiMakanan } from '../services/apiClient';
 
 export const usePreferensiMakanan = () => {
   const [isSaving, setIsSaving] = useState(false);

@@ -4,7 +4,7 @@ const menuRoutes = require('./routes/pencarianMenu');
 require('dotenv').config();
 const authRoutes = require('./routes/autentikasiperan');
 const preferenceRoutes = require('./routes/halaman_preferensi_makanan');
-const { verifikasiMailer } = require('./config/mailer');
+const { verifikasiMailer } = require('./services/mailtrap');
 
 if (!process.env.JWT_SECRET) {
     throw new Error('Konfigurasi JWT_SECRET belum diatur pada file .env.');

@@ -1,15 +1,12 @@
 import React from 'react';
 import { LOGO_URL } from '../data/dataMock';
 
-interface RoleSelectionLandingProps {
+interface HalamanUtamaProps {
   onSelectRole: (role: 'Pembeli' | 'Penjual') => void;
   onOpenPortalModal?: () => void;
 }
 
-export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
-  onSelectRole,
-  onOpenPortalModal
-}) => {
+export const HalamanPilihPeran: React.FC<HalamanUtamaProps> = ({ onSelectRole }) => {
   return (
     <div className="min-h-screen bg-[#f9f9ff] flex flex-col justify-between">
       {/* Top Bar Accent */}
@@ -47,7 +44,7 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
 
           {/* Dual Role Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-            {/* Card 1: Pembeli (Customer) */}
+            {/* Card 1: Pembeli */}
             <div
               onClick={() => onSelectRole('Pembeli')}
               className="group relative cursor-pointer rounded-3xl bg-white p-7 sm:p-8 transition-all duration-300 border-2 border-[#dee8ff] hover:border-[#a33900] shadow-sm hover:shadow-2xl flex flex-col justify-between"
@@ -63,11 +60,12 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
                 </div>
 
                 <div className="mt-6">
+                  <span className="text-[11px] font-mono text-[#5a4138]">ID: ROLE_CUSTOMER</span>
                   <h3 className="text-xl sm:text-2xl font-extrabold text-[#111c2d] mt-1 group-hover:text-[#a33900] transition-colors">
                     Masuk Sebagai Pembeli
                   </h3>
                   <p className="text-xs sm:text-sm text-[#5a4138] mt-2 leading-relaxed">
-                    Jelajahi aneka kuliner lezat, pilih makanan sesuai selera rasa, masukkan ke keranjang kasir terintegrasi, dan lacak kurir di halaman Live Tracking setelah pesanan dibuat.
+                    Jelajahi aneka kuliner lezat, pilih makanan sesuai selera rasa, masukkan ke keranjang kasir terintegrasi, dan lacak kurir di halaman Live Tracking.
                   </p>
 
                   <div className="mt-5 space-y-2 pt-4 border-t border-[#f0f3ff] text-xs text-[#5a4138]">
@@ -81,7 +79,7 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-[#006c49] text-base">check_circle</span>
-                      <span>Live Tracking Kurir (Aktif Setelah Checkout)</span>
+                      <span>Live Tracking Kurir & Voucher Promo</span>
                     </div>
                   </div>
                 </div>
@@ -99,7 +97,7 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
               </div>
             </div>
 
-            {/* Card 2: Penjual (Merchant) */}
+            {/* Card 2: Penjual */}
             <div
               onClick={() => onSelectRole('Penjual')}
               className="group relative cursor-pointer rounded-3xl bg-white p-7 sm:p-8 transition-all duration-300 border-2 border-[#dee8ff] hover:border-[#825100] shadow-sm hover:shadow-2xl flex flex-col justify-between"
@@ -115,25 +113,26 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
                 </div>
 
                 <div className="mt-6">
+                  <span className="text-[11px] font-mono text-[#5a4138]">ID: ROLE_MERCHANT</span>
                   <h3 className="text-xl sm:text-2xl font-extrabold text-[#111c2d] mt-1 group-hover:text-[#825100] transition-colors">
                     Masuk Sebagai Penjual
                   </h3>
                   <p className="text-xs sm:text-sm text-[#5a4138] mt-2 leading-relaxed">
-                    Kelola operasional restoran, pantau antrean pesanan masuk dengan hitung mundur timer 10 menit, serta analisa omzet penjualan harian dan stok menu.
+                    Kelola operasional restoran, pantau antrean pesanan masuk dengan hitung mundur timer 10 menit, serta kelola stok menu, voucher, dan laporan penjualan.
                   </p>
 
                   <div className="mt-5 space-y-2 pt-4 border-t border-[#f0f3ff] text-xs text-[#5a4138]">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-[#825100] text-base">check_circle</span>
-                      <span>Menu Antrean Pesanan (Timer 10 Menit)</span>
+                      <span>Antrean Pesanan Masuk (Timer 10 Menit)</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-[#825100] text-base">check_circle</span>
-                      <span>Dashboard Merchant & Analitik Omzet</span>
+                      <span>Form Tambah & Edit Menu Makanan</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-[#825100] text-base">check_circle</span>
-                      <span>Manajemen Ketersediaan Stok Menu Warung</span>
+                      <span>Kelola Voucher & Laporan Omzet Harian</span>
                     </div>
                   </div>
                 </div>
@@ -157,4 +156,4 @@ export const RoleSelectionLanding: React.FC<RoleSelectionLandingProps> = ({
   );
 };
 
-export const HalamanPilihPeran = RoleSelectionLanding;
+export default HalamanPilihPeran;

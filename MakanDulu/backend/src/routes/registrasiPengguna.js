@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
-const { registerBuyer, registerSeller } = require('../controller/registrasiPengguna');
+const { registerBuyer } = require('../controller/registrasi_pembeli_controller');
+const { registerSeller } = require('../controller/registrasi_penjual_controller');
 const { uploadLegalitas } = require('../middleware/uploadLegalitas');
 
 const router = express.Router();
