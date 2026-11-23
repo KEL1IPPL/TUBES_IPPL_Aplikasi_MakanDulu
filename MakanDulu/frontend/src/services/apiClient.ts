@@ -146,6 +146,24 @@ export class ApiError extends Error {
   }
 }
 
+export const safeParseJson = async <T>(response: Response): Promise<T> => {
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+      throw new ApiError(
+        'Server backend belum aktif atau tidak dapat dijangkau di port 3001. Pastikan server backend sudah dijalankan (jalankan "npm run dev" di folder backend).',
+        response.status
+      );
+    }
+    throw new ApiError(
+      `Respon dari server bukan JSON yang valid (${response.status}).`,
+      response.status
+    );
+  }
+};
+
 const getMenuToken = (): string => {
   const token = localStorage.getItem('makandulu_token');
   if (!token) {
@@ -171,7 +189,7 @@ const menuRequest = async <TResponse>(
     headers,
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
-  const data = await response.json() as TResponse & {
+  const data = (await safeParseJson(response)) as TResponse & {
     success?: boolean;
     message?: string;
   };
@@ -212,7 +230,7 @@ export const getProfilPengguna = async (): Promise<AuthResponse> => {
       Authorization: `Bearer ${token}`,
     },
   });
-  const data = (await response.json()) as AuthResponse;
+  const data = (await safeParseJson(response)) as AuthResponse;
   if (!response.ok || data.success === false) {
     throw new ApiError(data.message || 'Gagal memuat profil pengguna.', response.status);
   }
@@ -227,7 +245,7 @@ export const getKatalog = async (idPembeli?: number | string): Promise<KatalogRe
   }
   const query = idPembeli ? `?idPembeli=${idPembeli}` : '';
   const response = await fetch(`/api/katalog${query}`, { headers });
-  const data = (await response.json()) as KatalogResponse;
+  const data = (await safeParseJson(response)) as KatalogResponse;
   if (!response.ok || data.success === false) {
     throw new ApiError(data.message || 'Gagal memuat katalog.', response.status, data);
   }
@@ -250,7 +268,7 @@ export const searchKatalog = async (
   if (idPembeli) params.append('idPembeli', String(idPembeli));
 
   const response = await fetch(`/api/katalog/search?${params.toString()}`, { headers });
-  const data = (await response.json()) as SearchKatalogResponse;
+  const data = (await safeParseJson(response)) as SearchKatalogResponse;
   if (!response.ok || data.success === false) {
     throw new ApiError(data.message || 'Gagal mencari menu.', response.status, data);
   }
@@ -259,7 +277,7 @@ export const searchKatalog = async (
 
 export const getDetailMenuKatalog = async (idMenu: number): Promise<MenuResponse> => {
   const response = await fetch(`/api/katalog/menu/${idMenu}`);
-  const data = (await response.json()) as MenuResponse;
+  const data = (await safeParseJson(response)) as MenuResponse;
   if (!response.ok || data.success === false) {
     throw new ApiError(data.message || 'Gagal memuat detail menu.', response.status, data);
   }
@@ -268,7 +286,7 @@ export const getDetailMenuKatalog = async (idMenu: number): Promise<MenuResponse
 
 export const getDaftarTokoKatalog = async (): Promise<{ success: boolean; data: StoreProfile[] }> => {
   const response = await fetch('/api/katalog/toko');
-  const data = (await response.json()) as { success: boolean; data: StoreProfile[] };
+  const data = (await safeParseJson(response)) as { success: boolean; data: StoreProfile[] };
   if (!response.ok || data.success === false) {
     throw new ApiError('Gagal memuat daftar toko.', response.status, data);
   }
@@ -303,7 +321,7 @@ export const postJson = async <TResponse, TPayload>(
     body: JSON.stringify(payload),
   });
 
-  const data = (await response.json()) as TResponse & {
+  const data = (await safeParseJson(response)) as TResponse & {
     success?: boolean;
     message?: string;
   };
@@ -341,7 +359,7 @@ export const registerPenjual = (
     method: 'POST',
     body: formData,
   }).then(async (response) => {
-    const data = (await response.json()) as AuthResponse;
+    const data = (await safeParseJson(response)) as AuthResponse;
     if (!response.ok || data.success === false) {
       throw new Error(data.message || 'Registrasi penjual gagal.');
     }
@@ -375,7 +393,7 @@ export const simpanPreferensiMakanan = async (
     },
     body: JSON.stringify(preferences),
   });
-  const data = (await response.json()) as PreferenceResponse;
+  const data = (await safeParseJson(response)) as PreferenceResponse;
 
   if (!response.ok || data.success === false) {
     throw new Error(data.message || 'Gagal menyimpan preferensi makanan.');
@@ -434,7 +452,7 @@ export const bacaDokumenLegalitas = async (
     method: 'POST',
     body: formData,
   });
-  const data = await response.json() as LegalitasOcrResponse;
+  const data = (await safeParseJson(response)) as LegalitasOcrResponse;
 
   if (!response.ok || data.success === false) {
     throw new Error(data.message || 'Gagal membaca dokumen legalitas.');

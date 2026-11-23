@@ -40,16 +40,24 @@ const HalamanRegistrasiPenjual: React.FC<HalamanRegistrasiPenjualProps> = ({
     bacaDokumenLegalitas(ktpFile, npwpFile, nibFile)
       .then((response) => {
         if (cancelled) return;
-        setKtpNumber((response.data.nik || '').replace(/\D/g, ''));
-        setNpwpNumber((response.data.npwp || '').replace(/\D/g, ''));
-        setNibNumber((response.data.nib || '').replace(/\D/g, ''));
-        showToast('Dokumen Berhasil Dibaca', 'NIK, NPWP, dan NIB otomatis terisi.');
+        if (response.data?.nik) setKtpNumber(response.data.nik.replace(/\D/g, ''));
+        if (response.data?.npwp) setNpwpNumber(response.data.npwp.replace(/\D/g, ''));
+        if (response.data?.nib) setNibNumber(response.data.nib.replace(/\D/g, ''));
+        showToast('Hasil Pindai Dokumen', response.message || 'NIK, NPWP, dan NIB otomatis terisi.');
       })
       .catch((error) => {
         if (!cancelled) {
+          if (error && typeof error === 'object' && 'responseBody' in error) {
+            const body = (error as { responseBody?: { hasilParsial?: { nik?: string; npwp?: string; nib?: string } } }).responseBody;
+            if (body?.hasilParsial) {
+              if (body.hasilParsial.nik) setKtpNumber(body.hasilParsial.nik.replace(/\D/g, ''));
+              if (body.hasilParsial.npwp) setNpwpNumber(body.hasilParsial.npwp.replace(/\D/g, ''));
+              if (body.hasilParsial.nib) setNibNumber(body.hasilParsial.nib.replace(/\D/g, ''));
+            }
+          }
           showToast(
-            'OCR Dokumen Gagal',
-            error instanceof Error ? error.message : 'Isi nomor secara manual.',
+            'OCR Dokumen',
+            error instanceof Error ? error.message : 'Periksa kembali foto atau isi nomor secara manual.',
             true
           );
         }

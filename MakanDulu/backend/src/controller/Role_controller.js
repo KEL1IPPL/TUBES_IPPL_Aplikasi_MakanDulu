@@ -1,25 +1,8 @@
 const db = require('../config/db');
 
-/**
- * RoleController — Skenario Pemilihan Role oleh Pengguna
- *
- * Diagram Robustness:
- *   Boundary (Halaman_Utama) → pilih_role(role) → Control Object (RoleController)
- *   RoleController → simpan_role → Entity (Preferensi_Role)
- *   Entity → role_disimpan → RoleController
- *   RoleController → redirect → Boundary (Halaman_login/registrasi)
- */
 
 const VALID_ROLES = ['Pembeli', 'Penjual'];
 
-/**
- * POST /api/role/pilih
- * Body: { role: 'Pembeli' | 'Penjual', userId?: number }
- *
- * Menerima pilihan role dari Halaman_Utama (Boundary),
- * memvalidasi role, menyimpan ke tabel Preferensi_Role (Entity),
- * lalu mengembalikan redirect target ke Halaman_login/registrasi.
- */
 const pilihRole = async (req, res) => {
   const { role, userId } = req.body || {};
 
@@ -43,8 +26,6 @@ const pilihRole = async (req, res) => {
       );
     }
 
-    // --- role_disimpan → kembalikan ke Boundary ---
-    // Tentukan redirect target berdasarkan role yang dipilih
     const redirectTarget =
       role === 'Pembeli'
         ? '/login/pembeli'
@@ -67,10 +48,6 @@ const pilihRole = async (req, res) => {
   }
 };
 
-/**
- * GET /api/role/preferensi/:userId
- * Mengambil preferensi role terakhir pengguna dari Entity Preferensi_Role.
- */
 const getPreferensiRole = async (req, res) => {
   const { userId } = req.params;
 

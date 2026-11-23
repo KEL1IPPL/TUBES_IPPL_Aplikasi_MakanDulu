@@ -39,11 +39,7 @@ router.post('/baca/npwp', uploadMemori.single('npwp'), bacaNPWP);
 // POST /api/dokumen/baca/nib   → field "nib"
 router.post('/baca/nib',  uploadMemori.single('nib'),  bacaNIB);
 
-// ---------------------------------------------------------------------------
-// Rute batch — kirim ketiga dokumen sekaligus, hasilnya langsung bisa
-// dipakai untuk auto-fill form registrasi penjual
-// POST /api/dokumen/baca/legalitas  → fields: "ktpFile", "npwpFile", "nibFile"
-// ---------------------------------------------------------------------------
+
 router.post(
   '/baca/legalitas',
   uploadMemori.fields([
@@ -54,9 +50,8 @@ router.post(
   bacaDokumenLegalitas,
 );
 
-// ---------------------------------------------------------------------------
+
 // Error handler multer (ukuran / format file)
-// ---------------------------------------------------------------------------
 router.use((err, _req, res, _next) => {
   if (err instanceof multer.MulterError || err.message) {
     return res.status(400).json({ success: false, message: err.message });
