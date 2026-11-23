@@ -280,6 +280,8 @@ const toggleStatusMenu = async (req, res) => {
   }
 
   const { idMenu } = req.params;
+  const { statusAktif } = req.body || {};
+
   try {
     const [rows] = await db.execute(
       'SELECT idMenu, statusAktif FROM Menu WHERE idMenu = ? AND idPenjual = ?',
@@ -288,12 +290,19 @@ const toggleStatusMenu = async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Menu tidak ditemukan.' });
     }
-    const statusBaru = rows[0].statusAktif ? 0 : 1;
+
+    let statusBaru;
+    if (statusAktif !== undefined) {
+      statusBaru = statusAktif ? 1 : 0;
+    } else {
+      statusBaru = rows[0].statusAktif ? 0 : 1;
+    }
+
     await db.execute('UPDATE Menu SET statusAktif=? WHERE idMenu=?', [statusBaru, idMenu]);
     return res.status(200).json({
       success: true,
       message: statusBaru ? 'Menu berhasil diaktifkan' : 'Menu berhasil dinonaktifkan',
-      data: { isAvailable: Boolean(statusBaru) },
+      data: { isAvailable: Boolean(statusBaru), statusAktif: statusBaru },
     });
   } catch (error) {
     console.error('[MenuController.toggleStatusMenu] Error:', error);

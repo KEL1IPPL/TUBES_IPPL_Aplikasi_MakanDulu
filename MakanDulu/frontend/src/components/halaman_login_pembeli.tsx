@@ -85,13 +85,6 @@ const HalamanLoginPembeli: React.FC<HalamanLoginPembeliProps> = ({
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-bold text-[#111c2d]">Kata Sandi</label>
-            <button
-              type="button"
-              onClick={onNavigateToForgotPassword}
-              className="text-xs text-[#a33900] font-bold hover:underline"
-            >
-              Lupa sandi?
-            </button>
           </div>
           <div className="relative flex items-center">
             <input
@@ -106,6 +99,15 @@ const HalamanLoginPembeli: React.FC<HalamanLoginPembeliProps> = ({
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a4138] hover:text-[#111c2d] flex items-center justify-center p-0.5 focus:outline-none"
               aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}>
               <span className="material-symbols-outlined text-lg leading-none">{showPassword ? 'visibility_off' : 'visibility'}</span>
+            </button>
+          </div>
+          <div className="flex justify-end mt-1.5">
+            <button
+              type="button"
+              onClick={onNavigateToForgotPassword}
+              className="text-xs text-[#a33900] font-bold hover:underline"
+            >
+            Lupa sandi?
             </button>
           </div>
         </div>

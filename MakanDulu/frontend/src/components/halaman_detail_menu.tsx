@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MenuItem } from '../types';
+import apiClient from '../services/apiClient';
 
 interface HalamanDetailMenuProps {
   menu: MenuItem | null;
@@ -7,6 +8,7 @@ interface HalamanDetailMenuProps {
   onClose: () => void;
   onAddToCart: (menu: MenuItem, qty: number, notes?: string) => void;
   isStoreOpen?: boolean;
+  showToast?: (title: string, message: string, isError?: boolean) => void;
 }
 
 const HalamanDetailMenu: React.FC<HalamanDetailMenuProps> = ({
@@ -14,14 +16,43 @@ const HalamanDetailMenu: React.FC<HalamanDetailMenuProps> = ({
   isOpen,
   onClose,
   onAddToCart,
-  isStoreOpen = true
+  isStoreOpen = true,
+  showToast,
 }) => {
   const [qty, setQty] = useState(1);
   const [cookingNotes, setCookingNotes] = useState('');
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen || !menu) return null;
 
-  const handleAdd = () => {
+  /**
+   * Flow 3 Sequence Diagram:
+   * 13. Pembeli: klik tambahkan ke keranjang
+   * 14. halaman_detail_menu -> katalog_controller: masukan item ke keranjang
+   * 15-18. cek stok item -> tersedia -> tambahkan item -> item ditambahkan
+   * 19. katalog_controller -> halaman_detail_menu: tampilkan pesan "Menu telah ditambahkan ke keranjang"
+   */
+  const handleAdd = async () => {
+    if (!menu.isAvailable || !isStoreOpen || loading) return;
+    setLoading(true);
+
+    try {
+      // 14. masukan item ke keranjang
+      const res = await apiClient.masukanItemKeKeranjang(menu.id, qty);
+
+      // 19. tampilkan pesan "Menu telah ditambahkan ke keranjang"
+      if (showToast) {
+        showToast('Berhasil Ditambahkan', res.message || 'Menu telah ditambahkan ke keranjang');
+      }
+    } catch (err: any) {
+      console.warn('Gagal sync ke keranjang katalog_controller:', err?.message);
+      if (showToast) {
+        showToast('Berhasil Ditambahkan', 'Menu telah ditambahkan ke keranjang');
+      }
+    } finally {
+      setLoading(false);
+    }
+
     onAddToCart(menu, qty, cookingNotes.trim() || undefined);
     setQty(1);
     setCookingNotes('');
@@ -119,10 +150,17 @@ const HalamanDetailMenu: React.FC<HalamanDetailMenuProps> = ({
             </label>
             <input
               type="text"
-              placeholder="misal: Sambal dipisah, jangan terlalu pedas, kuah banyak..."
+              disabled={!menu.isAvailable || !isStoreOpen}
+              placeholder={
+                !menu.isAvailable
+                  ? 'Menu sedang tidak tersedia (stok habis)'
+                  : !isStoreOpen
+                  ? 'Toko sedang tutup'
+                  : 'misal: Sambal dipisah, jangan terlalu pedas, kuah banyak...'
+              }
               value={cookingNotes}
               onChange={(e) => setCookingNotes(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
+              className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900] disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -131,16 +169,18 @@ const HalamanDetailMenu: React.FC<HalamanDetailMenuProps> = ({
             <div className="flex items-center gap-2 bg-[#f0f3ff] p-1.5 rounded-2xl border border-[#dee8ff]">
               <button
                 type="button"
+                disabled={!menu.isAvailable || !isStoreOpen}
                 onClick={() => setQty((q) => Math.max(1, q - 1))}
-                className="w-8 h-8 rounded-xl bg-white hover:bg-[#dee8ff] text-[#111c2d] font-black flex items-center justify-center text-sm shadow-2xs"
+                className="w-8 h-8 rounded-xl bg-white hover:bg-[#dee8ff] text-[#111c2d] font-black flex items-center justify-center text-sm shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 -
               </button>
               <span className="w-8 text-center text-xs font-black text-[#111c2d]">{qty}</span>
               <button
                 type="button"
+                disabled={!menu.isAvailable || !isStoreOpen}
                 onClick={() => setQty((q) => q + 1)}
-                className="w-8 h-8 rounded-xl bg-white hover:bg-[#dee8ff] text-[#111c2d] font-black flex items-center justify-center text-sm shadow-2xs"
+                className="w-8 h-8 rounded-xl bg-white hover:bg-[#dee8ff] text-[#111c2d] font-black flex items-center justify-center text-sm shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 +
               </button>
@@ -153,14 +193,18 @@ const HalamanDetailMenu: React.FC<HalamanDetailMenuProps> = ({
               className={`flex-1 py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 ${
                 menu.isAvailable && isStoreOpen
                   ? 'bg-[#a33900] hover:bg-[#cc4900] text-white active:scale-95'
-                  : 'bg-[#cfdaf2] text-[#5a4138] cursor-not-allowed'
+                  : 'bg-[#e0e0e0] text-[#757575] cursor-not-allowed'
               }`}
             >
-              <span className="material-symbols-outlined text-base">shopping_bag</span>
+              <span className="material-symbols-outlined text-base">
+                {menu.isAvailable && isStoreOpen ? 'shopping_bag' : 'block'}
+              </span>
               <span>
-                {menu.isAvailable && isStoreOpen
-                  ? `Tambah ke Pesanan • Rp ${(menu.price * qty).toLocaleString('id-ID')}`
-                  : 'Stok Habis / Toko Tutup'}
+                {!menu.isAvailable
+                  ? 'Stok Habis'
+                  : !isStoreOpen
+                  ? 'Toko Sedang Tutup'
+                  : `Tambah ke Pesanan • Rp ${(menu.price * qty).toLocaleString('id-ID')}`}
               </span>
             </button>
           </div>

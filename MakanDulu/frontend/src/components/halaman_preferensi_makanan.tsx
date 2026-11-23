@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
 import { UserPreferences } from '../types';
+import apiClient from '../services/apiClient';
 
 interface HalamanPreferensiMakananProps {
   currentPreferences?: UserPreferences;
-  onSavePreferences: (updated: UserPreferences) => void;
+  onSavePreferences?: (updated: UserPreferences) => void;
+  onComplete?: (updated?: UserPreferences) => void;
+  onSkip?: () => void;
   onClose?: () => void;
   showToast: (title: string, message: string, isError?: boolean) => void;
+  isPostRegistration?: boolean;
 }
 
 const HalamanPreferensiMakanan: React.FC<HalamanPreferensiMakananProps> = ({
   currentPreferences,
   onSavePreferences,
+  onComplete,
+  onSkip,
   onClose,
-  showToast
+  showToast,
+  isPostRegistration = false,
 }) => {
   const [selectedTastes, setSelectedTastes] = useState<string[]>(
     currentPreferences?.tastes || ['pedas', 'gurih']
@@ -23,6 +30,7 @@ const HalamanPreferensiMakanan: React.FC<HalamanPreferensiMakananProps> = ({
   const [selectedDietary, setSelectedDietary] = useState<string[]>(
     currentPreferences?.dietary || ['aman_lambung']
   );
+  const [isSaving, setIsSaving] = useState(false);
 
   const tasteOptions = [
     { id: 'pedas', label: 'Pedas Nendang', icon: 'local_fire_department', desc: 'Bumbu rica, balado, cabai rawit merah' },
@@ -64,25 +72,68 @@ const HalamanPreferensiMakanan: React.FC<HalamanPreferensiMakananProps> = ({
     );
   };
 
-  const handleSave = () => {
+  /**
+   * Main Flow:
+   * 3. Pembeli: klik simpan dan lanjut
+   * 4. halaman_preferensi_makanan -> preferensi_makanan_controller: simpan preferensi makanan
+   * 5. preferensi_makanan_controller -> PreferensiMakanan: simpat data
+   * 6. PreferensiMakanan -> preferensi_makanan_controller: data disimpan
+   * 7. preferensi_makanan_controller -> halaman_dashboard_pembeli: Tampilkan dashboard Pembeli
+   */
+  const handleSaveAndContinue = async () => {
+    setIsSaving(true);
     const updated: UserPreferences = {
       tastes: selectedTastes,
       categories: selectedCategories,
       dietary: selectedDietary
     };
-    onSavePreferences(updated);
-    showToast('Preferensi Selera Disimpan', 'Katalog kini menampilkan rekomendasi makanan sesuai selera Anda.');
+
+    try {
+      // Panggil preferensi_makanan_controller untuk menyimpan ke entitas database PreferensiMakanan
+      await apiClient.simpanPreferensiMakanan(updated);
+      showToast('Preferensi Selera Disimpan', 'Katalog kini menampilkan rekomendasi makanan sesuai selera Anda.');
+    } catch (err: any) {
+      console.warn('Gagal menyimpan preferensi makanan ke backend:', err?.message);
+      showToast('Info Preferensi', 'Preferensi tersimpan untuk sesi saat ini.');
+    } finally {
+      setIsSaving(false);
+    }
+
+    if (onSavePreferences) onSavePreferences(updated);
+    if (onComplete) onComplete(updated);
+    if (onClose) onClose();
+  };
+
+  /**
+   * Alternative Flow:
+   * 2. Pembeli: klik tombol "Lewati"
+   * 3. halaman_preferensi_makanan -> preferensi_makanan_controller: lewati pemilihan preferensi makanan
+   * 4. preferensi_makanan_controller -> halaman_dashboard_pembeli: Tampilkan halaman dashboard Pembeli
+   */
+  const handleSkip = async () => {
+    try {
+      await apiClient.lewatiPreferensiMakanan();
+    } catch (err) {
+      console.warn('Gagal kirim status lewati ke backend:', err);
+    }
+
+    showToast('Pemilihan Dilewati', 'Menampilkan rekomendasi kuliner terpopuler.');
+    if (onSkip) onSkip();
+    if (onComplete) onComplete();
     if (onClose) onClose();
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-[#dee8ff] shadow-xl">
+    <div className="w-full max-w-3xl mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-[#dee8ff] shadow-xl animate-in fade-in zoom-in-95">
       <div className="flex items-center justify-between pb-4 border-b border-[#f0f3ff] mb-6">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-[#ffdbce] text-[#a33900] flex items-center justify-center font-bold">
             <span className="material-symbols-outlined text-2xl">soup_kitchen</span>
           </div>
           <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#a33900] bg-[#ffdbce] px-2.5 py-0.5 rounded-full inline-block mb-1">
+              {isPostRegistration ? 'Langkah Terakhir Registrasi' : 'Kustomisasi Selera'}
+            </span>
             <h2 className="text-xl font-extrabold text-[#111c2d]">Preferensi Selera Makanan</h2>
             <p className="text-xs text-[#5a4138]">Kustomisasi rekomendasi hidangan berdasarkan cita rasa favorit Anda</p>
           </div>
@@ -183,24 +234,39 @@ const HalamanPreferensiMakanan: React.FC<HalamanPreferensiMakananProps> = ({
         </div>
       </div>
 
-      <div className="mt-8 pt-4 border-t border-[#f0f3ff] flex items-center justify-end gap-3">
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-xl border border-[#dee8ff] text-xs font-bold text-[#5a4138] hover:bg-[#f0f3ff]"
-          >
-            Batal
-          </button>
-        )}
+      {/* Tombol Aksi Sesuai Sequence Diagram */}
+      <div className="mt-8 pt-4 border-t border-[#f0f3ff] flex items-center justify-between gap-3">
+        {/* Tombol Lewati (Alternative Flow) */}
         <button
           type="button"
-          onClick={handleSave}
-          className="px-6 py-2.5 rounded-xl bg-[#a33900] hover:bg-[#cc4900] text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
+          onClick={handleSkip}
+          className="px-5 py-2.5 rounded-xl border border-[#dee8ff] text-xs font-bold text-[#5a4138] hover:bg-[#f0f3ff] hover:text-[#111c2d] transition-colors"
         >
-          <span className="material-symbols-outlined text-base">check</span>
-          <span>Simpan Preferensi Selera</span>
+          Lewati
         </button>
+
+        <div className="flex items-center gap-2">
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#5a4138] hover:bg-[#f0f3ff]"
+            >
+              Batal
+            </button>
+          )}
+
+          {/* Tombol Simpan dan Lanjut (Main Flow) */}
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={handleSaveAndContinue}
+            className="px-6 py-2.5 rounded-xl bg-[#a33900] hover:bg-[#cc4900] text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-base">check</span>
+            <span>{isSaving ? 'Menyimpan...' : 'Simpan dan Lanjut'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -66,6 +66,7 @@ export interface CartItem {
   qty: number;
   sublabel: string;
   restaurant: string;
+  isAvailable?: boolean;
 }
 
 export interface DeliveryAddress {
@@ -78,6 +79,22 @@ export interface DeliveryAddress {
 export type PaymentMethod = 'ewallet' | 'bank_va' | 'cod';
 export type EWalletProvider = 'GoPay' | 'DANA' | 'OVO';
 export type BankProvider = 'Bank BCA' | 'Bank BNI' | 'Bank Mandiri' | 'Bank Lainnya';
+
+declare global {
+  interface Window {
+    snap?: {
+      pay: (
+        token: string,
+        callbacks?: {
+          onSuccess?: (result: any) => void;
+          onPending?: (result: any) => void;
+          onError?: (error: any) => void;
+          onClose?: () => void;
+        }
+      ) => void;
+    };
+  }
+}
 
 export interface OrderRecord {
   id: string;

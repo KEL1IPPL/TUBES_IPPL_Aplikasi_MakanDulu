@@ -118,8 +118,14 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
             {searchResult.data.map((menu) => (
               <div
                 key={menu.id}
-                onClick={() => onSelectMenu(menu)}
-                className="group cursor-pointer rounded-2xl bg-[#f9f9ff] hover:bg-white p-4 border border-[#dee8ff] hover:border-[#cc4900] transition-all shadow-2xs hover:shadow-md flex flex-col justify-between"
+                onClick={() => {
+                  if (menu.isAvailable) onSelectMenu(menu);
+                }}
+                className={`group rounded-2xl p-4 border transition-all shadow-2xs flex flex-col justify-between ${
+                  menu.isAvailable
+                    ? 'bg-[#f9f9ff] hover:bg-white border-[#dee8ff] hover:border-[#cc4900] hover:shadow-md cursor-pointer'
+                    : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale cursor-not-allowed'
+                }`}
               >
                 <div className="relative w-full h-44 rounded-xl overflow-hidden mb-3 bg-[#dee8ff]">
                   <img
@@ -131,10 +137,18 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
                         'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
                     }}
                   />
-                  <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-lg bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
-                    ★ {menu.rating}
-                  </span>
-                  {menu.discountPercentage && (
+                  {!menu.isAvailable ? (
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
+                      <span className="px-3 py-1 rounded-xl bg-[#ba1a1a] text-white text-xs font-black uppercase tracking-wider shadow-sm">
+                        Stok Habis
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-lg bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
+                      ★ {menu.rating}
+                    </span>
+                  )}
+                  {menu.isAvailable && menu.discountPercentage && (
                     <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-[#ba1a1a] text-white text-[10px] font-black shadow-xs">
                       Diskon {menu.discountPercentage}%
                     </span>
@@ -176,7 +190,11 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
                     >
                       Detail
                     </button>
-                    {onAddToCart && (
+                    {!menu.isAvailable ? (
+                      <span className="px-3 py-1.5 rounded-xl bg-[#e0e0e0] text-[#757575] text-xs font-bold cursor-not-allowed">
+                        Stok Habis
+                      </span>
+                    ) : onAddToCart ? (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -187,7 +205,7 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
                       >
                         + Pesan
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -256,8 +274,14 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
               {(searchResult.rekomendasiAlternatif || []).map((menu) => (
                 <div
                   key={menu.id}
-                  onClick={() => onSelectMenu(menu)}
-                  className="group cursor-pointer rounded-2xl bg-[#f9f9ff] hover:bg-white p-4 border border-[#dee8ff] hover:border-[#cc4900] transition-all shadow-2xs hover:shadow-md flex flex-col justify-between"
+                  onClick={() => {
+                    if (menu.isAvailable) onSelectMenu(menu);
+                  }}
+                  className={`group rounded-2xl p-4 border transition-all shadow-2xs flex flex-col justify-between ${
+                    menu.isAvailable
+                      ? 'bg-[#f9f9ff] hover:bg-white border-[#dee8ff] hover:border-[#cc4900] hover:shadow-md cursor-pointer'
+                      : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale cursor-not-allowed'
+                  }`}
                 >
                   <div className="relative w-full h-44 rounded-xl overflow-hidden mb-3 bg-[#dee8ff]">
                     <img
@@ -269,9 +293,17 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
                           'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
                       }}
                     />
-                    <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-lg bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
-                      ★ {menu.rating}
-                    </span>
+                    {!menu.isAvailable ? (
+                      <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
+                        <span className="px-3 py-1 rounded-xl bg-[#ba1a1a] text-white text-xs font-black uppercase tracking-wider shadow-sm">
+                          Stok Habis
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-lg bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
+                        ★ {menu.rating}
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -302,7 +334,11 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
                       >
                         Detail
                       </button>
-                      {onAddToCart && (
+                      {!menu.isAvailable ? (
+                        <span className="px-3 py-1.5 rounded-xl bg-[#e0e0e0] text-[#757575] text-xs font-bold cursor-not-allowed">
+                          Stok Habis
+                        </span>
+                      ) : onAddToCart ? (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -313,7 +349,7 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
                         >
                           + Pesan
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>

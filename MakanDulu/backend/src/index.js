@@ -19,6 +19,9 @@ const katalogRoutes    = require('./routes/katalog_routes');
 const authRoutes       = require('./routes/autentikasiperan');
 const preferenceRoutes = require('./routes/halaman_preferensi_makanan');
 const ocrRoutes        = require('./routes/pembaca_foto');       // ← OCR dokumen legalitas
+const pemesananRoutes  = require('./routes/pemesanan_routes');   // ← Pemesanan & Checkout
+const pembayaranRoutes = require('./routes/pembayaran_routes');  // ← Midtrans Payment Gateway
+const keranjangRoutes  = require('./routes/keranjang_routes');   // ← Keranjang Pembeli
 const { verifikasiMailer } = require('./services/mailtrap');
 
 if (!process.env.JWT_SECRET) {
@@ -55,6 +58,9 @@ app.use('/api/auth',                      authRoutes);
 app.use('/api/menu',                      menuRoutes);
 app.use('/api/katalog',                   katalogRoutes);
 app.use('/api/halaman-preferensi-makanan', preferenceRoutes);
+app.use('/api/pemesanan',                  pemesananRoutes);
+app.use('/api/pembayaran',                 pembayaranRoutes);
+app.use('/api/keranjang',                  keranjangRoutes);
 
 // Rute OCR dokumen legalitas penjual (KTP, NPWP, NIB)
 app.use('/api/dokumen',    ocrRoutes);
@@ -67,17 +73,21 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT, async () => {
-  console.log(`Backend berjalan di http://localhost:${PORT}`);
-  try {
-    await verifikasiMailer();
-  } catch (error) {
-    console.error('[mailer] SMTP Gmail tidak siap:', {
-      code: error.code,
-      responseCode: error.responseCode,
-      command: error.command,
-      response: error.response,
-    });
-  }
-});
+if (require.main === module) {
+  app.listen(PORT, async () => {
+    console.log(`Backend berjalan di http://localhost:${PORT}`);
+    try {
+      await verifikasiMailer();
+    } catch (error) {
+      console.error('[mailer] SMTP Gmail tidak siap:', {
+        code: error.code,
+        responseCode: error.responseCode,
+        command: error.command,
+        response: error.response,
+      });
+    }
+  });
+}
+
+module.exports = app;
 

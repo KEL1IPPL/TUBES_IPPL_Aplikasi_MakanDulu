@@ -3,7 +3,7 @@ import { MenuItem, CartItem, DeliveryAddress, PaymentMethod, EWalletProvider, Ba
 import { STORE_PROFILES } from '../data/dataMock';
 import HalamanDetailMenu from '../components/halaman_detail_menu';
 import HalamanHasilPencarian from '../components/halaman_hasil_pencarian';
-import apiClient, { SearchKatalogResponse } from '../services/apiClient';
+import apiClient, { SearchKatalogResponse, buatPesanan, konfirmasiPembayaranSelesai } from '../services/apiClient';
 
 interface HalamanCheckoutProps {
   menuList: MenuItem[];
@@ -44,6 +44,38 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
   const [sedangMencari, setSedangMencari] = useState(false);
   const [isModePencarian, setIsModePencarian] = useState(false);
   const [menuDetailTerpilih, setMenuDetailTerpilih] = useState<MenuItem | null>(null);
+
+  /**
+   * Flow 2 Sequence Diagram:
+   * 8. Pembeli: pilih menu
+   * 9. halaman_dashboard_pembeli -> katalog_controller: tampilkan detail menu
+   * 10. katalog_controller -> Menu: ambil data detail menu
+   * 11. Menu -> katalog_controller: detail menu
+   * 12. katalog_controller -> halaman_detail_menu: tampilkan detail menu
+   */
+  const pilihMenuUntukDetail = async (menu: MenuItem) => {
+    const numericId = typeof menu.id === 'number'
+      ? menu.id
+      : parseInt(String(menu.id).replace(/\D/g, ''), 10);
+
+    if (numericId && !isNaN(numericId)) {
+      try {
+        const res = await apiClient.getDetailMenuKatalog(numericId);
+        if (res.success && res.data) {
+          setMenuDetailTerpilih({
+            ...menu,
+            ...res.data,
+            id: menu.id,
+            imageUrl: res.data.imageUrl || menu.imageUrl,
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn('Gagal memuat detail menu via API katalog_controller, fallback ke menu lokal:', err);
+      }
+    }
+    setMenuDetailTerpilih(menu);
+  };
 
   const [filterKategoriAktif, setFilterKategoriAktif] = useState('all');
   const [statusKuponDiterapkan, setStatusKuponDiterapkan] = useState(false);
@@ -138,6 +170,11 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
 
   // Fungsi internal menambahkan item ke keranjang
   const eksekusiTambahMenu = (menu: MenuItem, timpaKeranjang = false, qty = 1, notes?: string) => {
+    // Sinkronkan ke database Keranjang & ItemKeranjang
+    apiClient.masukanItemKeKeranjang(menu.id, qty).catch((err) => {
+      console.warn('Gagal sync menu ke database keranjang:', err);
+    });
+
     setCart((sebelumnya) => {
       const daftarDasar = timpaKeranjang ? [] : sebelumnya;
       const sudahAda = daftarDasar.find((x) => x.menuId === menu.id || x.name === menu.name);
@@ -155,12 +192,13 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
           price: menu.price,
           qty: qty,
           sublabel: notes || menu.modifier || 'Rasa Autentik Gurih',
-          restaurant: menu.restaurant
+          restaurant: menu.restaurant,
+          isAvailable: menu.isAvailable,
         }
       ];
     });
 
-    showToast('Berhasil Ditambahkan', `${qty}x ${menu.name} telah masuk ke keranjang belanja.`);
+    showToast('Berhasil Ditambahkan', 'Menu telah ditambahkan ke keranjang');
   };
 
   // Menambahkan menu dengan aturan 1 Pesanan = 1 Toko
@@ -209,9 +247,15 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
     }
   };
 
-  const kirimPesananSelesai = () => {
+  const kirimPesananSelesai = async () => {
     if (cart.length === 0) {
       showToast('Keranjang Kosong', 'Pilih menu favorit Anda sebelum checkout.', true);
+      return;
+    }
+
+    const itemHabis = cart.find((item) => item.isAvailable === false);
+    if (itemHabis) {
+      showToast('Menu Stok Habis', `Menu "${itemHabis.name}" stoknya habis. Hapus menu dari keranjang.`, true);
       return;
     }
 
@@ -234,12 +278,87 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
         : 'COD (Bayar Tunai di Tempat)';
 
     setSedangProsesPesanan(true);
-    setTimeout(() => {
+
+    try {
+      // --- LANGKAH 10–26: Panggil pemesanan_controller di backend & inisialisasi Midtrans ---
+      const response = await buatPesanan({
+        items: cart.map((c) => ({
+          idMenu: c.menuId || c.id,
+          name: c.name,
+          price: c.price,
+          qty: c.qty,
+        })),
+        alamatPengantaran: `${currentAddress.street}, ${currentAddress.details}`,
+        kodeVoucher: statusKuponDiterapkan ? 'SELERA35PEDAS' : undefined,
+        metodePembayaran: metodePembayaranDipilih === 'cod' ? 'COD' : namaPenyedia,
+        ongkir: biayaOngkir + biayaLayanan,
+      });
+
+      const { idPesanan, snapToken, redirectUrl } = response.data;
+
+      // Jika metode COD atau tidak ada token snap
+      if (metodePembayaranDipilih === 'cod' || !snapToken) {
+        setSedangProsesPesanan(false);
+        setDrawerKeranjangTerbuka(false);
+        onOrderSuccess(cart, totalPembayaran, metodePembayaranDipilih, namaPenyedia);
+        showToast(
+          'Pesanan COD Berhasil Dibuat!',
+          'Pesanan Anda sedang diteruskan ke dapur resto mitra MakanDulu.'
+        );
+        return;
+      }
+
+      // --- LANGKAH 27–34: Buka Popup Midtrans Snap (halaman_pembayaran) ---
+      if (typeof window !== 'undefined' && window.snap) {
+        window.snap.pay(snapToken, {
+          onSuccess: async (result: unknown) => {
+            try {
+              await konfirmasiPembayaranSelesai(idPesanan, result);
+            } catch (err) {
+              console.error('Gagal konfirmasi status pembayaran ke backend:', err);
+            }
+            setSedangProsesPesanan(false);
+            setDrawerKeranjangTerbuka(false);
+            onOrderSuccess(cart, totalPembayaran, metodePembayaranDipilih, namaPenyedia);
+            showToast(
+              'Pembayaran Berhasil!',
+              'Midtrans mengonfirmasi pembayaran Anda. Pesanan langsung masuk dapur resto.'
+            );
+          },
+          onPending: () => {
+            setSedangProsesPesanan(false);
+            setDrawerKeranjangTerbuka(false);
+            onOrderSuccess(cart, totalPembayaran, metodePembayaranDipilih, namaPenyedia);
+            showToast(
+              'Menunggu Pembayaran',
+              'Silakan selesaikan pembayaran sesuai instruksi Midtrans.'
+            );
+          },
+          onError: () => {
+            setSedangProsesPesanan(false);
+            showToast('Pembayaran Gagal', 'Transaksi Midtrans dibatalkan atau gagal diproses.', true);
+          },
+          onClose: () => {
+            setSedangProsesPesanan(false);
+            showToast('Jendela Pembayaran Ditutup', 'Anda dapat melanjutkan pembayaran kapan saja.');
+          },
+        });
+      } else if (redirectUrl) {
+        window.location.href = redirectUrl;
+      } else {
+        setSedangProsesPesanan(false);
+        setDrawerKeranjangTerbuka(false);
+        onOrderSuccess(cart, totalPembayaran, metodePembayaranDipilih, namaPenyedia);
+        showToast('Pesanan Diproses', 'Transaksi berhasil dicatat ke sistem.');
+      }
+    } catch (err) {
       setSedangProsesPesanan(false);
-      setDrawerKeranjangTerbuka(false);
-      onOrderSuccess(cart, totalPembayaran, metodePembayaranDipilih, namaPenyedia);
-      showToast('Pesanan Berhasil Masuk Dapur!', 'Pesanan Anda langsung diteruskan ke resto mitra. Mengalihkan ke Live Tracking...');
-    }, 1200);
+      showToast(
+        'Gagal Membuat Pesanan',
+        err instanceof Error ? err.message : 'Terjadi kesalahan pada server saat memproses pesanan.',
+        true
+      );
+    }
   };
 
   // Logika Drag Vertikal untuk Keranjang Mengambang
@@ -431,7 +550,7 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
             onResetSearch={resetPencarian}
             isSearching={sedangMencari}
             searchResult={hasilPencarian}
-            onSelectMenu={(menu) => setMenuDetailTerpilih(menu)}
+            onSelectMenu={(menu) => pilihMenuUntukDetail(menu)}
             onAddToCart={(menu) => tambahMenuKeKeranjang(menu)}
             userPreferences={userPreferences}
           />
@@ -488,18 +607,30 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
               {daftarRekomendasi.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-2xl bg-white p-3.5 border border-[#ffdbce] shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                  className={`rounded-2xl p-3.5 border shadow-xs transition-all flex flex-col justify-between ${
+                    item.isAvailable
+                      ? 'bg-white border-[#ffdbce] hover:shadow-md'
+                      : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale'
+                  }`}
                 >
                   <div>
-                    <div className="relative h-36 w-full rounded-xl overflow-hidden mb-3">
+                    <div className="relative h-36 w-full rounded-xl overflow-hidden mb-3 bg-[#f0f3ff]">
                       <img
                         src={item.imageUrl}
                         alt={item.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#a33900] text-white text-[10px] font-extrabold uppercase">
-                        Rekomendasi
-                      </span>
+                      {!item.isAvailable ? (
+                        <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
+                          <span className="px-3 py-1 rounded-xl bg-[#ba1a1a] text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
+                            Stok Habis
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#a33900] text-white text-[10px] font-extrabold uppercase">
+                          Rekomendasi
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between gap-1 mb-1">
@@ -518,7 +649,12 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                       </div>
                     </div>
 
-                    <h4 className="text-sm font-bold text-[#111c2d] leading-snug line-clamp-1">{item.name}</h4>
+                    <h4
+                      onClick={() => item.isAvailable && pilihMenuUntukDetail(item)}
+                      className="text-sm font-bold text-[#111c2d] leading-snug line-clamp-1 cursor-pointer hover:text-[#cc4900] transition-colors"
+                    >
+                      {item.name}
+                    </h4>
                     <p className="text-[11px] text-[#5a4138] mt-1 line-clamp-2">{item.description}</p>
                   </div>
 
@@ -529,12 +665,16 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setMenuDetailTerpilih(item)}
-                        className="px-2.5 py-1.5 rounded-xl bg-[#f0f3ff] hover:bg-[#dee8ff] text-[#cc4900] text-xs font-bold transition-all"
+                        onClick={() => pilihMenuUntukDetail(item)}
+                        className="px-2.5 py-1.5 rounded-xl bg-[#f0f3ff] hover:bg-[#dee8ff] text-[#cc4900] text-xs font-bold transition-all cursor-pointer"
                       >
                         Detail
                       </button>
-                      {!isStoreOpen ? (
+                      {!item.isAvailable ? (
+                        <span className="px-3 py-1.5 rounded-xl bg-[#e0e0e0] text-[#757575] text-[11px] font-bold cursor-not-allowed">
+                          Stok Habis
+                        </span>
+                      ) : !isStoreOpen ? (
                         <span className="text-[10px] font-bold text-[#ba1a1a] bg-[#ffdad6] px-2 py-1 rounded-lg">
                           Toko Tutup
                         </span>
@@ -921,8 +1061,8 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setMenuDetailTerpilih(item)}
-                      className="px-2.5 py-1.5 rounded-xl bg-[#f0f3ff] hover:bg-[#dee8ff] text-[#cc4900] text-xs font-bold transition-all"
+                      onClick={() => pilihMenuUntukDetail(item)}
+                      className="px-2.5 py-1.5 rounded-xl bg-[#f0f3ff] hover:bg-[#dee8ff] text-[#cc4900] text-xs font-bold transition-all cursor-pointer"
                     >
                       Detail
                     </button>
@@ -1007,7 +1147,7 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
     </>
   )}
 
-  {/* Boundary: Halaman Detail Menu sesuai Robustness Diagram */}
+  {/* Boundary: Halaman Detail Menu sesuai Robustness & Sequence Diagram */}
   <HalamanDetailMenu
     isOpen={menuDetailTerpilih !== null}
     menu={menuDetailTerpilih}
@@ -1017,6 +1157,7 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
       setMenuDetailTerpilih(null);
     }}
     isStoreOpen={isStoreOpen}
+    showToast={showToast}
   />
 </div>
   );

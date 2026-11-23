@@ -154,19 +154,25 @@ const HalamanKatalog: React.FC<HalamanKatalogProps> = ({
                 </span>
               </div>
 
-              <button
-                type="button"
-                disabled={!item.isAvailable || !isStoreOpen}
-                onClick={() => onAddToCart(item)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-xs active:scale-95 ${
-                  item.isAvailable && isStoreOpen
-                    ? 'bg-[#a33900] hover:bg-[#cc4900] text-white'
-                    : 'bg-[#cfdaf2] text-[#5a4138] cursor-not-allowed'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base">add_shopping_cart</span>
-                <span>+ Pesan</span>
-              </button>
+              {!item.isAvailable ? (
+                <span className="px-3 py-2 rounded-xl bg-[#e0e0e0] text-[#757575] text-xs font-bold cursor-not-allowed flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">block</span>
+                  <span>Stok Habis</span>
+                </span>
+              ) : !isStoreOpen ? (
+                <span className="px-3 py-2 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs font-bold cursor-not-allowed">
+                  Toko Tutup
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onAddToCart(item)}
+                  className="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-xs active:scale-95 bg-[#a33900] hover:bg-[#cc4900] text-white"
+                >
+                  <span className="material-symbols-outlined text-base">add_shopping_cart</span>
+                  <span>+ Pesan</span>
+                </button>
+              )}
             </div>
           </div>
         ))}

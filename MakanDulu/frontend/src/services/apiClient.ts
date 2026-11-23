@@ -213,8 +213,12 @@ export const tambahMenu = (payload: MenuPayload) =>
 export const updateMenu = (idMenu: number, payload: MenuPayload) =>
   menuRequest<MenuResponse>(`/api/menu/${idMenu}`, 'PUT', payload);
 
-export const toggleMenuStatus = (idMenu: number) =>
-  menuRequest<MenuResponse>(`/api/menu/${idMenu}/stok`, 'PATCH');
+export const toggleMenuStatus = (idMenu: number, statusAktif?: boolean) =>
+  menuRequest<MenuResponse>(
+    `/api/menu/${idMenu}/stok`,
+    'PATCH',
+    statusAktif !== undefined ? { statusAktif } : undefined
+  );
 
 export const hapusMenu = (idMenu: number) =>
   menuRequest<MenuResponse>(`/api/menu/${idMenu}`, 'DELETE');
@@ -293,6 +297,166 @@ export const getDaftarTokoKatalog = async (): Promise<{ success: boolean; data: 
   return data;
 };
 
+export interface MasukanItemKeranjangResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    idKeranjang: number;
+    idItemKeranjang: number;
+    idMenu: number;
+    namaMenu: string;
+    hargaSatuan: number;
+    jumlah: number;
+    totalHarga: number;
+  };
+}
+
+/**
+ * Flow 3 Sequence Diagram:
+ * halaman_detail_menu -> katalog_controller: masukan item ke keranjang
+ * Response: tampilkan pesan "Menu telah ditambahkan ke keranjang"
+ */
+export const masukanItemKeKeranjang = async (
+  idMenu: number | string,
+  jumlah: number = 1,
+  idPembeli?: number | string
+): Promise<MasukanItemKeranjangResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const numericId =
+    typeof idMenu === 'number'
+      ? idMenu
+      : parseInt(String(idMenu).replace(/\D/g, ''), 10) || idMenu;
+
+  const response = await fetch('/api/katalog/keranjang', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ idMenu: numericId, jumlah, idPembeli }),
+  });
+
+  const data = (await safeParseJson(response)) as MasukanItemKeranjangResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal memasukkan menu ke keranjang.', response.status, data);
+  }
+  return data;
+};
+
+export interface CartDbItem {
+  id: string;
+  idItemKeranjang: number;
+  idMenu: number;
+  name: string;
+  price: number;
+  qty: number;
+  subtotal: number;
+  imageUrl?: string;
+  restaurant?: string;
+  isAvailable?: boolean;
+}
+
+export interface CartDbResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    idKeranjang: number;
+    idPembeli: number;
+    totalHarga: number;
+    items: CartDbItem[];
+  };
+}
+
+export const getKeranjang = async (idPembeli?: number | string): Promise<CartDbResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const query = idPembeli ? `?idPembeli=${idPembeli}` : '';
+  const response = await fetch(`/api/keranjang${query}`, { headers });
+  const data = (await safeParseJson(response)) as CartDbResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal memuat keranjang.', response.status, data);
+  }
+  return data;
+};
+
+export const hapusItemKeranjang = async (idItemKeranjang: number | string) => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(`/api/keranjang/item/${idItemKeranjang}`, {
+    method: 'DELETE',
+    headers,
+  });
+  return safeParseJson(response);
+};
+
+export const kosongkanKeranjang = async () => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch('/api/keranjang', {
+    method: 'DELETE',
+    headers,
+  });
+  return safeParseJson(response);
+};
+
+export const lewatiPreferensiMakanan = async (): Promise<{ success: boolean; message: string }> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch('/api/halaman-preferensi-makanan/lewati', {
+    method: 'POST',
+    headers,
+  });
+  return safeParseJson(response);
+};
+
+export interface PreferenceResponse {
+  success: boolean;
+  message: string;
+  data: UserPreferences & {
+    idPreferensi: number;
+    idPembeli: number;
+    updatedAt: string;
+  };
+}
+
+export const simpanPreferensiMakanan = async (
+  preferences: UserPreferences
+): Promise<PreferenceResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  if (!token) {
+    throw new Error('Sesi Pembeli tidak ditemukan. Silakan login kembali.');
+  }
+
+  const response = await fetch('/api/halaman-preferensi-makanan', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(preferences),
+  });
+  const data = (await safeParseJson(response)) as PreferenceResponse;
+
+  if (!response.ok || data.success === false) {
+    throw new Error(data.message || 'Gagal menyimpan preferensi makanan.');
+  }
+
+  return data;
+};
+
 const apiClient = {
   getMenus,
   tambahMenu,
@@ -305,6 +469,12 @@ const apiClient = {
   searchKatalog,
   getDetailMenuKatalog,
   getDaftarTokoKatalog,
+  masukanItemKeKeranjang,
+  getKeranjang,
+  hapusItemKeranjang,
+  kosongkanKeranjang,
+  simpanPreferensiMakanan,
+  lewatiPreferensiMakanan,
 };
 
 export default apiClient;
@@ -377,30 +547,7 @@ export interface PreferenceResponse {
   };
 }
 
-export const simpanPreferensiMakanan = async (
-  preferences: UserPreferences
-): Promise<PreferenceResponse> => {
-  const token = localStorage.getItem('makandulu_token');
-  if (!token) {
-    throw new Error('Sesi Pembeli tidak ditemukan. Silakan login kembali.');
-  }
 
-  const response = await fetch('/api/halaman-preferensi-makanan', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(preferences),
-  });
-  const data = (await safeParseJson(response)) as PreferenceResponse;
-
-  if (!response.ok || data.success === false) {
-    throw new Error(data.message || 'Gagal menyimpan preferensi makanan.');
-  }
-
-  return data;
-};
 
 type ResetPasswordPayload = {
   email: string;
@@ -459,4 +606,71 @@ export const bacaDokumenLegalitas = async (
   }
   return data;
 };
+
+// =============================================================================
+// PEMESANAN & LAYANAN PEMBAYARAN MIDTRANS (SEQUENCE DIAGRAM PEMBAYARAN)
+// =============================================================================
+
+export interface PesananItemPayload {
+  idMenu?: number | string;
+  menuId?: number | string;
+  id?: number | string;
+  name: string;
+  price: number;
+  qty: number;
+}
+
+export interface PesananPayload {
+  idPembeli?: number;
+  idPenjual?: number;
+  items: PesananItemPayload[];
+  alamatPengantaran: string;
+  kodeVoucher?: string;
+  metodePembayaran: string;
+  ongkir?: number;
+  catatan?: string;
+}
+
+export interface PesananData {
+  idPesanan: number;
+  idPembayaran: number;
+  orderId: string;
+  totalBayar: number;
+  totalHargaItem: number;
+  totalDiskon: number;
+  biayaOngkir: number;
+  metodePembayaran: string;
+  statusPesanan: string;
+  statusPembayaran: string;
+  snapToken?: string;
+  redirectUrl?: string;
+}
+
+export interface PesananResponse {
+  success: boolean;
+  message: string;
+  data: PesananData;
+}
+
+export const buatPesanan = (payload: PesananPayload) =>
+  postJson<PesananResponse, PesananPayload>('/api/pemesanan', payload);
+
+export const konfirmasiPembayaranSelesai = (
+  idPesanan: number,
+  midtransResult?: unknown
+) =>
+  postJson<
+    { success: boolean; message: string; data: unknown },
+    { midtransResult?: unknown }
+  >(`/api/pembayaran/selesai/${idPesanan}`, { midtransResult });
+
+export const getStatusPesanan = async (idPesanan: number) => {
+  const response = await fetch(`/api/pemesanan/${idPesanan}`);
+  const data = await safeParseJson<{ success: boolean; data: any }>(response);
+  if (!response.ok || data.success === false) {
+    throw new ApiError('Gagal memuat status pesanan.', response.status, data);
+  }
+  return data;
+};
+
 

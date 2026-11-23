@@ -162,7 +162,7 @@ const getKatalogRekomendasi = async (req, res) => {
     // 1. ambil_preferensi -> Entity Preferensi_makanan
     const preferensi = await ambilPreferensiPembeli(idPembeli);
 
-    // 2. ambil_menu -> Entity Menu JOIN Penjual
+    // 2. ambil_menu -> Entity Menu JOIN Penjual (semua menu agar yang nonaktif tampil abu-abu & stok habis)
     const [menuRows] = await db.execute(
       `SELECT m.idMenu, m.idPenjual, m.namaMenu, m.harga, m.hargaNormal, m.diskonPersen,
               m.kategori, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.deskripsi,
@@ -170,8 +170,7 @@ const getKatalogRekomendasi = async (req, res) => {
               p.namaToko, p.alamatToko, p.nomorTelepon
        FROM Menu m
        JOIN Penjual p ON m.idPenjual = p.idPenjual
-       WHERE m.statusAktif = 1
-       ORDER BY m.idMenu DESC`
+       ORDER BY m.statusAktif DESC, m.idMenu DESC`
     );
 
     const allMenus = menuRows.map(mapMenuRow);
@@ -210,7 +209,7 @@ const getDetailMenu = async (req, res) => {
   const { idMenu } = req.params;
 
   try {
-    // ambil_detail -> Entity Menu
+    // ambil_detail -> Entity Menu (tetap ambil agar boundary detail bisa tampilkan status Stok Habis jika nonaktif)
     const [rows] = await db.execute(
       `SELECT m.idMenu, m.idPenjual, m.namaMenu, m.harga, m.hargaNormal, m.diskonPersen,
               m.kategori, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.deskripsi,
@@ -218,14 +217,14 @@ const getDetailMenu = async (req, res) => {
               p.namaToko, p.alamatToko, p.nomorTelepon
        FROM Menu m
        JOIN Penjual p ON m.idPenjual = p.idPenjual
-       WHERE m.idMenu = ? AND m.statusAktif = 1`,
+       WHERE m.idMenu = ?`,
       [idMenu]
     );
 
     if (rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Menu tidak ditemukan atau sedang tidak aktif.',
+        message: 'Menu tidak ditemukan.',
       });
     }
 
@@ -259,7 +258,7 @@ const searchKatalog = async (req, res) => {
              p.namaToko, p.alamatToko, p.nomorTelepon
       FROM Menu m
       JOIN Penjual p ON m.idPenjual = p.idPenjual
-      WHERE m.statusAktif = 1
+      WHERE 1=1
     `;
     const params = [];
 
@@ -273,7 +272,7 @@ const searchKatalog = async (req, res) => {
       params.push(kategori, `%${kategori}%`);
     }
 
-    sql += ` ORDER BY m.idMenu DESC`;
+    sql += ` ORDER BY m.statusAktif DESC, m.idMenu DESC`;
 
     const [rows] = await db.execute(sql, params);
 
@@ -348,9 +347,136 @@ const getDaftarToko = async (req, res) => {
   }
 };
 
+/**
+ * =============================================================================
+ * FLOW 3 SEQUENCE DIAGRAM KATALOG:
+ * 13. Pembeli -> halaman_detail_menu: "klik tambahkan ke keranjang"
+ * 14. halaman_detail_menu -> katalog_controller: "masukan item ke keranjang"
+ * 15. katalog_controller -> Menu: "cek stok item"
+ * 16. Menu -> katalog_controller: "tersedia"
+ * 17. katalog_controller -> Keranjang: "tambahkan item"
+ * 18. Keranjang -> katalog_controller: "item ditambahkan"
+ * 19. katalog_controller -> halaman_detail_menu: tampilkan pesan "Menu telah ditambahkan ke keranjang"
+ * =============================================================================
+ */
+const masukanItemKeKeranjang = async (req, res) => {
+  const user = extractUserFromToken(req);
+  const idPembeli = user?.role === 'Pembeli' ? user.id : (req.body.idPembeli || req.query.idPembeli || 1);
+  const idMenu = req.body.idMenu || req.params.idMenu;
+  const jumlah = Math.max(1, parseInt(req.body.jumlah, 10) || 1);
+
+  if (!idMenu) {
+    return res.status(400).json({
+      success: false,
+      message: 'idMenu wajib disertakan.',
+    });
+  }
+
+  try {
+    // 15. cek stok item -> Entity Menu
+    const [menuRows] = await db.execute(
+      `SELECT idMenu, idPenjual, namaMenu, harga, statusAktif 
+       FROM Menu 
+       WHERE idMenu = ?`,
+      [idMenu]
+    );
+
+    if (menuRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Menu tidak ditemukan.',
+      });
+    }
+
+    const menu = menuRows[0];
+
+    // 16. ketersediaan stok ("tersedia")
+    if (menu.statusAktif === 0 || menu.statusAktif === false) {
+      return res.status(400).json({
+        success: false,
+        message: `Menu "${menu.namaMenu}" sedang tidak tersedia (stok habis).`,
+      });
+    }
+
+    // 17. tambahkan item -> Entity Keranjang
+    let [cartRows] = await db.execute(
+      'SELECT idKeranjang FROM Keranjang WHERE idPembeli = ?',
+      [idPembeli]
+    );
+
+    let idKeranjang;
+    if (cartRows.length === 0) {
+      const [insertRes] = await db.execute(
+        'INSERT INTO Keranjang (idPembeli, totalHarga) VALUES (?, 0)',
+        [idPembeli]
+      );
+      idKeranjang = insertRes.insertId;
+    } else {
+      idKeranjang = cartRows[0].idKeranjang;
+    }
+
+    const hargaSatuan = Number(menu.harga);
+
+    // Cek apakah item sudah ada di ItemKeranjang
+    const [existingItem] = await db.execute(
+      'SELECT idItemKeranjang, jumlah FROM ItemKeranjang WHERE idKeranjang = ? AND idMenu = ?',
+      [idKeranjang, idMenu]
+    );
+
+    let idItemKeranjang;
+    if (existingItem.length > 0) {
+      const jumlahBaru = existingItem[0].jumlah + jumlah;
+      const subtotalBaru = hargaSatuan * jumlahBaru;
+      await db.execute(
+        'UPDATE ItemKeranjang SET jumlah = ?, subtotal = ? WHERE idItemKeranjang = ?',
+        [jumlahBaru, subtotalBaru, existingItem[0].idItemKeranjang]
+      );
+      idItemKeranjang = existingItem[0].idItemKeranjang;
+    } else {
+      const subtotal = hargaSatuan * jumlah;
+      const [insItemRes] = await db.execute(
+        `INSERT INTO ItemKeranjang (idKeranjang, idMenu, jumlah, hargaSatuan, subtotal)
+         VALUES (?, ?, ?, ?, ?)`,
+        [idKeranjang, idMenu, jumlah, hargaSatuan, subtotal]
+      );
+      idItemKeranjang = insItemRes.insertId;
+    }
+
+    // 18. item ditambahkan -> Perbarui totalHarga di Keranjang
+    const [sumRows] = await db.execute(
+      'SELECT SUM(subtotal) AS total FROM ItemKeranjang WHERE idKeranjang = ?',
+      [idKeranjang]
+    );
+    const totalHarga = sumRows[0]?.total || 0;
+    await db.execute('UPDATE Keranjang SET totalHarga = ? WHERE idKeranjang = ?', [totalHarga, idKeranjang]);
+
+    // 19. tampilkan pesan "Menu telah ditambahkan ke keranjang" -> Boundary halaman_detail_menu
+    return res.status(200).json({
+      success: true,
+      message: 'Menu telah ditambahkan ke keranjang',
+      data: {
+        idKeranjang,
+        idItemKeranjang,
+        idMenu: menu.idMenu,
+        namaMenu: menu.namaMenu,
+        hargaSatuan,
+        jumlah,
+        totalHarga,
+      },
+    });
+  } catch (error) {
+    console.error('[KatalogController.masukanItemKeKeranjang] Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Gagal memasukkan menu ke keranjang.',
+    });
+  }
+};
+
 module.exports = {
   getKatalogRekomendasi,
   getDetailMenu,
   searchKatalog,
   getDaftarToko,
+  masukanItemKeKeranjang,
 };

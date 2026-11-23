@@ -122,23 +122,27 @@ const HalamanDashboardPembeli: React.FC<HalamanDashboardPembeliProps> = ({
           {recommendedMenus.slice(0, 4).map((menu) => (
             <div
               key={menu.id}
-              onClick={() => onSelectMenu(menu)}
-              className={`group cursor-pointer rounded-2xl p-3 border transition-all shadow-2xs hover:shadow-md flex flex-col justify-between ${
+              onClick={() => {
+                if (menu.isAvailable) onSelectMenu(menu);
+              }}
+              className={`group rounded-2xl p-3 border transition-all shadow-2xs flex flex-col justify-between ${
                 menu.isAvailable
-                  ? 'bg-[#f9f9ff] hover:bg-white border-[#dee8ff] hover:border-[#a33900]'
-                  : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale'
+                  ? 'bg-[#f9f9ff] hover:bg-white border-[#dee8ff] hover:border-[#a33900] hover:shadow-md cursor-pointer'
+                  : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale cursor-not-allowed'
               }`}
             >
-              <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
+              <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3 bg-[#dee8ff]">
                 <img
                   src={menu.imageUrl}
                   alt={menu.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 {!menu.isAvailable ? (
-                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#ba1a1a] text-white text-[10px] font-bold">
-                    Habis
-                  </span>
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
+                    <span className="px-3 py-1 rounded-xl bg-[#ba1a1a] text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
+                      Stok Habis
+                    </span>
+                  </div>
                 ) : (
                   <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
                     ★ {menu.rating}
@@ -154,9 +158,15 @@ const HalamanDashboardPembeli: React.FC<HalamanDashboardPembeliProps> = ({
                 <span className="text-xs font-black text-[#a33900]">
                   Rp {menu.price.toLocaleString('id-ID')}
                 </span>
-                <span className="text-[10px] text-[#006c49] font-bold bg-[#6ffbbe]/30 px-2 py-0.5 rounded-full">
-                  Lihat Menu
-                </span>
+                {!menu.isAvailable ? (
+                  <span className="text-[10px] text-[#757575] font-bold bg-[#e0e0e0] px-2.5 py-1 rounded-full cursor-not-allowed">
+                    Stok Habis
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-[#006c49] font-bold bg-[#6ffbbe]/30 px-2 py-0.5 rounded-full">
+                    Lihat Menu
+                  </span>
+                )}
               </div>
             </div>
           ))}

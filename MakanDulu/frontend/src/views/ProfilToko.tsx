@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MenuItem, CartItem, StoreProfile } from '../types';
+import apiClient from '../services/apiClient';
 
 interface ProfilTokoProps {
   storeProfile: StoreProfile;
@@ -58,6 +59,11 @@ export const ProfilToko: React.FC<ProfilTokoProps> = ({
   } | null>(null);
 
   const eksekusiTambahMenu = (menu: MenuItem, timpaKeranjang = false) => {
+    // Sinkronkan ke database Keranjang
+    apiClient.masukanItemKeKeranjang(menu.id, 1).catch((err) => {
+      console.warn('Gagal sync menu ke database keranjang:', err);
+    });
+
     setCart((prev) => {
       const daftarDasar = timpaKeranjang ? [] : prev;
       const existing = daftarDasar.find((x) => x.menuId === menu.id || x.name === menu.name);
@@ -73,7 +79,8 @@ export const ProfilToko: React.FC<ProfilTokoProps> = ({
           price: menu.price,
           qty: 1,
           sublabel: menu.modifier || 'Rasa Autentik Gurih',
-          restaurant: menu.restaurant
+          restaurant: menu.restaurant,
+          isAvailable: menu.isAvailable,
         }
       ];
     });
@@ -329,8 +336,10 @@ export const ProfilToko: React.FC<ProfilTokoProps> = ({
             return (
               <div
                 key={item.id}
-                className={`bg-white rounded-3xl overflow-hidden border border-[#dee8ff] shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
-                  !item.isAvailable ? 'opacity-85' : ''
+                className={`rounded-3xl overflow-hidden border shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
+                  item.isAvailable
+                    ? 'bg-white border-[#dee8ff]'
+                    : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale'
                 }`}
               >
                 <div>
@@ -340,12 +349,12 @@ export const ProfilToko: React.FC<ProfilTokoProps> = ({
                       src={item.imageUrl}
                       alt={item.name}
                       className={`w-full h-full object-cover transition-transform duration-300 hover:scale-105 ${
-                        !item.isAvailable || !isStoreOpen ? 'filter grayscale-[30%]' : ''
+                        !item.isAvailable ? 'filter grayscale' : !isStoreOpen ? 'filter grayscale-[30%]' : ''
                       }`}
                     />
 
                     {/* Discount Badge */}
-                    {hasDiscount && (
+                    {hasDiscount && item.isAvailable && (
                       <span className="absolute top-3 left-3 px-2.5 py-1 rounded-xl bg-[#ba1a1a] text-white text-[11px] font-extrabold shadow-sm flex items-center gap-1">
                         <span className="material-symbols-outlined text-xs">local_fire_department</span>
                         <span>Diskon {item.discountPercentage || Math.round(((item.originalPrice! - item.price) / item.originalPrice!) * 100)}%</span>
@@ -354,9 +363,11 @@ export const ProfilToko: React.FC<ProfilTokoProps> = ({
 
                     {/* Stock Status Badge */}
                     {!item.isAvailable ? (
-                      <span className="absolute top-3 right-3 px-2.5 py-1 rounded-xl bg-[#ba1a1a] text-white text-[11px] font-bold shadow-sm">
-                        Stok Habis
-                      </span>
+                      <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
+                        <span className="px-3.5 py-1.5 rounded-xl bg-[#ba1a1a] text-white text-xs font-black uppercase tracking-wider shadow-sm">
+                          Stok Habis
+                        </span>
+                      </div>
                     ) : (
                       <span className="absolute bottom-3 left-3 px-2 py-0.5 rounded-lg bg-black/60 text-white text-[10px] font-mono">
                         Terjual: {item.salesCount || '100+'}

@@ -11,7 +11,7 @@ interface HalamanKelolaMenuProps {
   onAddMenu: (menu: MenuItem) => void;
   onUpdateMenu: (menu: MenuItem) => void;
   onDeleteMenu: (menuId: string) => void;
-  onToggleStock: (menuId: string) => void;
+  onToggleStock: (menuId: string, statusEksplisit?: boolean) => void;
   onToggleDiscount?: (menuId: string) => void;
   showToast: (title: string, message: string, isError?: boolean) => void;
 }
@@ -76,14 +76,14 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
   };
 
   /**
-   * handleConfirmDeactivate — Toggle stok aktif/habis via API.
+   * handleConfirmDeactivate — Toggle stok aktif/habis via API (nonaktifkan).
    */
   const handleConfirmDeactivate = async () => {
     if (!itemToDeactivate) return;
     const idMenu = getIdMenu(itemToDeactivate);
     if (idMenu) {
       try {
-        await apiClient.toggleStokMenu(idMenu);
+        await apiClient.toggleStokMenu(idMenu, false);
       } catch (err) {
         showToast(
           'Gagal Mengubah Stok',
@@ -94,19 +94,19 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
         return;
       }
     }
-    onToggleStock(itemToDeactivate.id);
+    onToggleStock(itemToDeactivate.id, false);
     showToast('Menu Berhasil Dinonaktifkan', `Menu "${itemToDeactivate.name}" berhasil dinonaktifkan.`);
     setItemToDeactivate(null);
   };
 
   /**
-   * handleToggleStokLangsung — Aktifkan stok langsung (tanpa popup konfirmasi).
+   * handleToggleStokLangsung — Aktifkan stok langsung via API.
    */
   const handleToggleStokLangsung = async (item: MenuItem) => {
     const idMenu = getIdMenu(item);
     if (idMenu) {
       try {
-        await apiClient.toggleStokMenu(idMenu);
+        await apiClient.toggleStokMenu(idMenu, true);
       } catch (err) {
         showToast(
           'Gagal Mengubah Stok',
@@ -116,7 +116,7 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
         return;
       }
     }
-    onToggleStock(item.id);
+    onToggleStock(item.id, true);
     showToast('Menu Berhasil Diaktifkan', `Menu "${item.name}" berhasil diaktifkan.`);
   };
 

@@ -25,12 +25,37 @@ const login = async (req, res) => {
     let user = null;
     if (role === 'Pembeli') {
       const [rows] = await db.execute(
-        `SELECT idPembeli AS id, nama AS name, email, password,
-                nomorTelepon AS phone, alamat AS address
-         FROM Pembeli WHERE email = ?`,
+        `SELECT p.idPembeli AS id, p.nama AS name, p.email, p.password,
+                p.nomorTelepon AS phone, p.alamat AS address,
+                pm.rasaFavorit, pm.kategoriFavorit, pm.polaMakan
+         FROM Pembeli p
+         LEFT JOIN PreferensiMakanan pm ON p.idPembeli = pm.idPembeli
+         WHERE p.email = ?`,
         [emailBersih]
       );
-      if (rows.length > 0) user = { ...rows[0], role: 'Pembeli' };
+      if (rows.length > 0) {
+        const r = rows[0];
+        let preferences = { tastes: ['pedas', 'gurih'], categories: ['ayam_bebek'], dietary: ['aman_lambung'] };
+        if (r.rasaFavorit) {
+          try {
+            preferences = {
+              tastes: typeof r.rasaFavorit === 'string' ? JSON.parse(r.rasaFavorit) : r.rasaFavorit,
+              categories: typeof r.kategoriFavorit === 'string' ? JSON.parse(r.kategoriFavorit) : r.kategoriFavorit,
+              dietary: typeof r.polaMakan === 'string' ? JSON.parse(r.polaMakan) : r.polaMakan,
+            };
+          } catch (_) {}
+        }
+        user = {
+          id: r.id,
+          name: r.name,
+          email: r.email,
+          password: r.password,
+          phone: r.phone,
+          address: r.address,
+          role: 'Pembeli',
+          preferences,
+        };
+      }
     } else {
       const [rows] = await db.execute(
         `SELECT idPenjual AS id, namaPemilik AS name, namaPemilik AS ownerName, email, password,
@@ -94,12 +119,36 @@ const getProfile = async (req, res) => {
     let user = null;
     if (role === 'Pembeli') {
       const [rows] = await db.execute(
-        `SELECT idPembeli AS id, nama AS name, email,
-                nomorTelepon AS phone, alamat AS address
-         FROM Pembeli WHERE idPembeli = ?`,
+        `SELECT p.idPembeli AS id, p.nama AS name, p.email,
+                p.nomorTelepon AS phone, p.alamat AS address,
+                pm.rasaFavorit, pm.kategoriFavorit, pm.polaMakan
+         FROM Pembeli p
+         LEFT JOIN PreferensiMakanan pm ON p.idPembeli = pm.idPembeli
+         WHERE p.idPembeli = ?`,
         [id]
       );
-      if (rows.length > 0) user = { ...rows[0], role: 'Pembeli' };
+      if (rows.length > 0) {
+        const r = rows[0];
+        let preferences = { tastes: ['pedas', 'gurih'], categories: ['ayam_bebek'], dietary: ['aman_lambung'] };
+        if (r.rasaFavorit) {
+          try {
+            preferences = {
+              tastes: typeof r.rasaFavorit === 'string' ? JSON.parse(r.rasaFavorit) : r.rasaFavorit,
+              categories: typeof r.kategoriFavorit === 'string' ? JSON.parse(r.kategoriFavorit) : r.kategoriFavorit,
+              dietary: typeof r.polaMakan === 'string' ? JSON.parse(r.polaMakan) : r.polaMakan,
+            };
+          } catch (_) {}
+        }
+        user = {
+          id: r.id,
+          name: r.name,
+          email: r.email,
+          phone: r.phone,
+          address: r.address,
+          role: 'Pembeli',
+          preferences,
+        };
+      }
     } else {
       const [rows] = await db.execute(
         `SELECT idPenjual AS id, namaPemilik AS name, namaPemilik AS ownerName, email,

@@ -193,10 +193,44 @@ useEffect(() => {
           if (response.data.tokoList && response.data.tokoList.length > 0) {
             setDaftarToko(response.data.tokoList);
           }
+          if (response.data.preferensi) {
+            setProfilPengguna((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                preferences: {
+                  tastes: response.data.preferensi.rasaFavorit || prev.preferences?.tastes || ['pedas', 'gurih'],
+                  categories: response.data.preferensi.kategoriFavorit || prev.preferences?.categories || ['ayam_bebek'],
+                  dietary: response.data.preferensi.polaMakan || prev.preferences?.dietary || ['aman_lambung'],
+                },
+              };
+            });
+          }
         }
       })
       .catch((error) => {
         console.error('Gagal memuat katalog pembeli dari backend:', error);
+      });
+    // Sinkronisasi data keranjang dari database pembeli (tabel Keranjang & ItemKeranjang)
+    apiClient
+      .getKeranjang(profilPengguna?.id)
+      .then((res) => {
+        if (res.success && res.data && res.data.items && res.data.items.length > 0) {
+          const cartFromDb = res.data.items.map((it) => ({
+            id: `cart-db-${it.idItemKeranjang}`,
+            menuId: `menu-${it.idMenu}`,
+            name: it.name,
+            price: it.price,
+            qty: it.qty,
+            sublabel: 'Rasa Autentik Gurih',
+            restaurant: it.restaurant || 'Resto Bebek Juara',
+            isAvailable: it.isAvailable !== false,
+          }));
+          setKeranjang(cartFromDb);
+        }
+      })
+      .catch((err) => {
+        console.warn('Gagal memuat isi keranjang dari database:', err);
       });
   }, [peranPengguna, tahapAplikasi, profilPengguna?.id]);
 
@@ -263,35 +297,20 @@ useEffect(() => {
     }
   }, [pemberitahuanToast.tampil]);
 
-  // Handler beralih stok menu bagi Penjual
-  const tanganiAlihkanStok = async (idMenu: string) => {
-    const menuTarget = daftarMenu.find((item) => item.id === idMenu);
-    const numericId = /^menu-(\d+)$/.exec(idMenu);
-
-    if (numericId) {
-      try {
-        await toggleMenuStatus(Number(numericId[1]));
-      } catch (error) {
-        console.error('Gagal mengubah status stok menu:', error);
-        tampilkanToast('Gagal Mengubah Stok', 'Perubahan tidak tersimpan ke backend.', true);
-        return;
-      }
-    }
-
+  // Handler beralih stok menu bagi Penjual (sinkronisasi state lokal di App)
+  const tanganiAlihkanStok = (idMenu: string, statusEksplisit?: boolean) => {
     setDaftarMenu((sebelumnya) => {
       const target = sebelumnya.find((item) => item.id === idMenu);
-      const statusBerikutnya = target ? !target.isAvailable : false;
+      const statusBerikutnya =
+        statusEksplisit !== undefined
+          ? statusEksplisit
+          : target
+          ? !target.isAvailable
+          : false;
       return sebelumnya.map((item) =>
         item.id === idMenu ? { ...item, isAvailable: statusBerikutnya } : item
       );
     });
-
-    if (menuTarget) {
-      tampilkanToast(
-        menuTarget.isAvailable ? 'Stok Ditandai Habis' : 'Stok Diaktifkan',
-        `${menuTarget.name} kini ${menuTarget.isAvailable ? 'Habis' : 'Tersedia'} di katalog pembeli.`
-      );
-    }
   };
 
   // Handler alihkan diskon promosi bagi Penjual
@@ -430,6 +449,7 @@ useEffect(() => {
 
     setPesananSaatIni(pesananBaru);
     setKeranjang([]);
+    apiClient.kosongkanKeranjang().catch(() => {});
     setTabAktifPembeli('tracking');
     tampilkanToast(
       'Pesanan Diterima Dapur!',
@@ -711,20 +731,53 @@ useEffect(() => {
       />
 
       {/* Modal Preferensi Selera Makanan */}
-      {profilPengguna?.preferences && (
-        <ModalPreferensi
-          isOpen={modalPreferensiTerbuka}
-          onClose={() => setModalPreferensiTerbuka(false)}
-          currentPreferences={profilPengguna.preferences}
-          onSavePreferences={async (preferensiDiperbarui) => {
-            await simpanPreferensi(preferensiDiperbarui);
-            setProfilPengguna((sebelumnya) =>
-              sebelumnya ? { ...sebelumnya, preferences: preferensiDiperbarui } : null
-            );
-          }}
-          showToast={tampilkanToast}
-        />
-      )}
+      <ModalPreferensi
+        isOpen={modalPreferensiTerbuka}
+        onClose={() => setModalPreferensiTerbuka(false)}
+        currentPreferences={
+          profilPengguna?.preferences || {
+            tastes: ['pedas', 'gurih'],
+            categories: ['ayam_bebek', 'nasi_bakar'],
+            dietary: ['aman_lambung'],
+          }
+        }
+        onSavePreferences={async (preferensiDiperbarui) => {
+          await simpanPreferensi(preferensiDiperbarui);
+          setProfilPengguna((sebelumnya) =>
+            sebelumnya ? { ...sebelumnya, preferences: preferensiDiperbarui } : null
+          );
+        }}
+        showToast={tampilkanToast}
+      />
+
+      {/* Modal Detail Profil Akun Pengguna */}
+      <ModalProfil
+        isOpen={modalProfilTerbuka}
+        onClose={() => setModalProfilTerbuka(false)}
+        userProfile={
+          profilPengguna || {
+            id: 1,
+            name: peranPengguna === 'Pembeli' ? 'Pembeli MakanDulu' : 'Mitra Penjual',
+            email: 'user@makandulu.com',
+            phone: '081234567890',
+            address: 'Indonesia',
+            role: peranPengguna || 'Pembeli',
+            preferences: {
+              tastes: ['pedas', 'gurih'],
+              categories: ['ayam_bebek'],
+              dietary: ['aman_lambung'],
+            },
+          }
+        }
+        userRole={peranPengguna || 'Pembeli'}
+        isStoreOpen={statusTokoBuka}
+        onOpenPreferenceModal={() => {
+          setModalProfilTerbuka(false);
+          setModalPreferensiTerbuka(true);
+        }}
+        onResetData={tanganiResetData}
+        onLogout={tanganiKeluarKeLanding}
+      />
     </div>
   );
 }
