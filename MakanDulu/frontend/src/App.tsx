@@ -8,7 +8,8 @@ import {
   PembeliTab,
   PenjualTab,
   UserProfile,
-  MenuItem
+  MenuItem,
+  StoreProfile
 } from './types/tipeData';
 import {
   INITIAL_MENU_ITEMS,
@@ -32,12 +33,14 @@ import { ModalProfil } from './components/ModalProfil';
 import { HalamanCheckout } from './views/HalamanCheckout';
 import { KeranjangPembeli } from './views/KeranjangPembeli';
 import { PelacakanPesanan } from './views/PelacakanPesanan';
-import { DashboardPenjual } from './views/DashboardPenjual';
-import { PesananPenjual } from './views/PesananPenjual';
-import { KelolaStokPenjual } from './views/KelolaStokPenjual';
+import HalamanDashboardPenjual from './components/halaman_dashboard_penjual';
+import HalamanPesananPenjual from './components/halaman_pesanan_penjual';
+import HalamanKelolaMenu from './components/halaman_kelola_menu';
+import HalamanKelolaVoucher from './components/halaman_kelola_voucher';
+import HalamanLaporanPenjualan from './components/halaman_laporan_penjualan';
 import { ProfilToko } from './views/ProfilToko';
 import { usePreferensiMakanan } from './hooks/usePreferensiMakanan';
-import { getMenus, toggleMenuStatus, MenuApiItem } from './services/apiClient';
+import apiClient, { getMenus, toggleMenuStatus, updateMenu, MenuApiItem, getProfilPengguna } from './services/apiClient';
 
 export default function AplikasiUtama() {
   const { simpan: simpanPreferensi } = usePreferensiMakanan();
@@ -49,23 +52,44 @@ export default function AplikasiUtama() {
     muatDariPenyimpanan(KUNCI_STORAGE.PERAN, null)
   );
 
-  // Profil Pengguna (menyimpan detail pendaftaran, saldo MakanPay & preferensi rasa)
-  const [profilPengguna, setProfilPengguna] = useState<UserProfile | null>(() =>
-    muatDariPenyimpanan<UserProfile | null>(KUNCI_STORAGE.PROFIL, {
-      name: 'Siti Rahmawati',
-      email: 'siti.rahma@domain.com',
-      phone: '0812-3456-7890',
-      address: 'Jl. Sudirman No. 42 (Gedung B Lt. 3), Kebayoran Baru, Jakarta Selatan',
-      role: 'Pembeli',
-      balance: 150000,
-      registeredAt: '20 Oktober 2026',
-      preferences: {
-        tastes: ['pedas', 'gurih'],
-        categories: ['ayam_bebek', 'nasi_bakar'],
-        dietary: ['aman_lambung']
-      }
-    })
-  );
+  // Profil Pengguna (menyimpan detail akun login langsung dari database)
+  const [profilPengguna, setProfilPengguna] = useState<UserProfile | null>(() => {
+    const tersimpan = muatDariPenyimpanan<UserProfile | null>(KUNCI_STORAGE.PROFIL, null);
+    // Bersihkan data profil lokal mock jika tersisa
+    if (tersimpan && tersimpan.email === 'siti.rahma@domain.com') {
+      localStorage.removeItem(KUNCI_STORAGE.PROFIL);
+      return null;
+    }
+    return tersimpan;
+  });
+
+  // Validasi sesi token & perbarui profil real dari database saat aplikasi dimuat
+  useEffect(() => {
+    const token = localStorage.getItem('makandulu_token');
+    if (token) {
+      getProfilPengguna()
+        .then((res) => {
+          if (res.user) {
+            const u = res.user;
+            setProfilPengguna(u);
+            setPeranPengguna(u.role);
+            if (u.role === 'Pembeli' && u.address) {
+              setAlamatTujuanSaatIni((prev) => ({
+                ...prev,
+                street: u.address,
+                details: `Penerima: ${u.name} (${u.phone})`,
+              }));
+            }
+          }
+        })
+        .catch(() => {
+          // Token tidak valid atau sesi kedaluwarsa
+          localStorage.removeItem('makandulu_token');
+          localStorage.removeItem(KUNCI_STORAGE.PROFIL);
+          setProfilPengguna(null);
+        });
+    }
+  }, []);
 
   // Tab aktif ruang kerja
   const [tabAktifPembeli, setTabAktifPembeli] = useState<PembeliTab>('katalog');
@@ -87,6 +111,9 @@ export default function AplikasiUtama() {
   const [daftarMenu, setDaftarMenu] = useState<MenuItem[]>(() =>
     muatDariPenyimpanan(KUNCI_STORAGE.MENU, INITIAL_MENU_ITEMS)
   );
+  // Status sinkronisasi mitra toko dan rekomendasi dari database
+  const [daftarToko, setDaftarToko] = useState<StoreProfile[]>([]);
+  const [daftarRekomendasi, setDaftarRekomendasi] = useState<MenuItem[]>([]);
   const [keranjang, setKeranjang] = useState<CartItem[]>(() =>
     muatDariPenyimpanan(KUNCI_STORAGE.KERANJANG, INITIAL_CART)
   );
@@ -148,6 +175,30 @@ useEffect(() => {
         console.error('Gagal memuat menu dari backend:', error);
       });
   }, [peranPengguna, tahapAplikasi]);
+
+  // Main Flow Diagram Robustness: proses_katalog(preferensi_pembeli) -> ambil_preferensi + ambil_menu
+  useEffect(() => {
+    if (peranPengguna !== 'Pembeli' || tahapAplikasi !== 'app') return;
+
+    apiClient
+      .getKatalog(profilPengguna?.id)
+      .then((response) => {
+        if (response.success && response.data) {
+          if (response.data.menus && response.data.menus.length > 0) {
+            setDaftarMenu(response.data.menus);
+          }
+          if (response.data.rekomendasi && response.data.rekomendasi.length > 0) {
+            setDaftarRekomendasi(response.data.rekomendasi);
+          }
+          if (response.data.tokoList && response.data.tokoList.length > 0) {
+            setDaftarToko(response.data.tokoList);
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Gagal memuat katalog pembeli dari backend:', error);
+      });
+  }, [peranPengguna, tahapAplikasi, profilPengguna?.id]);
 
   useEffect(() => {
     simpanKePenyimpanan(KUNCI_STORAGE.TAHAP_APLIKASI, tahapAplikasi);
@@ -244,40 +295,79 @@ useEffect(() => {
   };
 
   // Handler alihkan diskon promosi bagi Penjual
-  const tanganiAlihkanDiskon = (idMenu: string) => {
-    setDaftarMenu((sebelumnya) => {
-      const menuTarget = sebelumnya.find((x) => x.id === idMenu);
-      if (!menuTarget) return sebelumnya;
+  const tanganiAlihkanDiskon = async (idMenu: string) => {
+    const menuTarget = daftarMenu.find((item) => item.id === idMenu);
+    if (!menuTarget) return;
 
-      const sedangDiskon = Boolean(menuTarget.originalPrice && menuTarget.originalPrice > menuTarget.price);
-      let hargaBaru = menuTarget.price;
-      let hargaAwalBaru: number | undefined = undefined;
-      let persenDiskonBaru: number | undefined = undefined;
+    const sedangDiskon = Boolean(menuTarget.originalPrice && menuTarget.originalPrice > menuTarget.price);
+    let hargaBaru = menuTarget.price;
+    let hargaAwalBaru: number | undefined = undefined;
+    let persenDiskonBaru: number | undefined = undefined;
 
-      if (sedangDiskon) {
-        hargaBaru = menuTarget.originalPrice || menuTarget.price;
-        hargaAwalBaru = undefined;
-        persenDiskonBaru = undefined;
-        tampilkanToast('Diskon Dinonaktifkan', `Harga ${menuTarget.name} kembali normal: Rp ${hargaBaru.toLocaleString('id-ID')}`);
-      } else {
-        hargaAwalBaru = menuTarget.price;
-        hargaBaru = Math.round(menuTarget.price * 0.8); // Diskon 20%
-        persenDiskonBaru = 20;
-        tampilkanToast('Diskon Diberikan!', `Harga ${menuTarget.name} didiskon 20% menjadi Rp ${hargaBaru.toLocaleString('id-ID')}`);
+    if (sedangDiskon) {
+      hargaBaru = menuTarget.originalPrice || menuTarget.price;
+    } else {
+      hargaAwalBaru = menuTarget.price;
+      hargaBaru = Math.round(menuTarget.price * 0.8);
+      persenDiskonBaru = 20;
+    }
+
+    const numericId = /^menu-(\d+)$/.exec(idMenu);
+    if (numericId) {
+      try {
+        await updateMenu(Number(numericId[1]), {
+          namaMenu: menuTarget.name,
+          kategori: menuTarget.category,
+          harga: hargaBaru,
+          hargaNormal: hargaAwalBaru,
+          deskripsi: menuTarget.description,
+          fotoUrl: menuTarget.imageUrl,
+          rasaKarakter: menuTarget.tasteCategory,
+          modifier: menuTarget.modifier,
+          statusAktif: menuTarget.isAvailable,
+        });
+      } catch (error) {
+        tampilkanToast('Gagal Mengubah Diskon', error instanceof Error ? error.message : 'Perubahan tidak tersimpan ke backend.', true);
+        return;
       }
+    }
 
+    setDaftarMenu((sebelumnya) => {
+      const target = sebelumnya.find((x) => x.id === idMenu);
+      if (!target) return sebelumnya;
       return sebelumnya.map((item) => {
         if (item.id === idMenu) {
           return {
             ...item,
             price: hargaBaru,
             originalPrice: hargaAwalBaru,
-            discountPercentage: persenDiskonBaru
+            discountPercentage: persenDiskonBaru,
           };
         }
         return item;
       });
     });
+
+    if (sedangDiskon) {
+      tampilkanToast('Diskon Dinonaktifkan', `Harga ${menuTarget.name} kembali normal: Rp ${hargaBaru.toLocaleString('id-ID')}`);
+    } else {
+      tampilkanToast('Diskon Diberikan!', `Harga ${menuTarget.name} didiskon 20% menjadi Rp ${hargaBaru.toLocaleString('id-ID')}`);
+    }
+  };
+
+  // Handler kelola menu bagi Penjual (Tambah, Update, Hapus)
+  const tanganiTambahMenu = (menuBaru: MenuItem) => {
+    setDaftarMenu((sebelumnya) => [menuBaru, ...sebelumnya]);
+  };
+
+  const tanganiUpdateMenu = (menuDiperbarui: MenuItem) => {
+    setDaftarMenu((sebelumnya) =>
+      sebelumnya.map((m) => (m.id === menuDiperbarui.id ? menuDiperbarui : m))
+    );
+  };
+
+  const tanganiHapusMenu = (idMenu: string) => {
+    setDaftarMenu((sebelumnya) => sebelumnya.filter((m) => m.id !== idMenu));
   };
 
   // Handler buka/tutup resto bagi Penjual
@@ -295,28 +385,17 @@ useEffect(() => {
   // Handler reset semua data simulasi ke kondisi awal
   const tanganiResetData = () => {
     resetSemuaPenyimpanan();
+    localStorage.removeItem('makandulu_token');
+    localStorage.removeItem(KUNCI_STORAGE.PROFIL);
     setDaftarMenu(INITIAL_MENU_ITEMS);
     setKeranjang(INITIAL_CART);
     setAlamatTujuanSaatIni(DEFAULT_DELIVERY_ADDRESS);
     setPesananSaatIni(null);
     setStatusTokoBuka(true);
-    setProfilPengguna({
-      name: 'Siti Rahmawati',
-      email: 'siti.rahma@domain.com',
-      phone: '0812-3456-7890',
-      address: 'Jl. Sudirman No. 42 (Gedung B Lt. 3), Kebayoran Baru, Jakarta Selatan',
-      role: 'Pembeli',
-      balance: 150000,
-      registeredAt: '20 Oktober 2026',
-      preferences: {
-        tastes: ['pedas', 'gurih'],
-        categories: ['ayam_bebek', 'nasi_bakar'],
-        dietary: ['aman_lambung']
-      }
-    });
+    setProfilPengguna(null);
     setTahapAplikasi('select_role');
     setPeranPengguna(null);
-    tampilkanToast('Data Direset', 'Semua data dan keranjang telah dikembalikan ke setelan awal.');
+    tampilkanToast('Data Direset', 'Semua data dan sesi login telah dibersihkan.');
   };
 
   // Handler keberhasilan checkout
@@ -360,6 +439,9 @@ useEffect(() => {
 
   // Handler keluar / ganti peran
   const tanganiKeluarKeLanding = () => {
+    localStorage.removeItem('makandulu_token');
+    localStorage.removeItem(KUNCI_STORAGE.PROFIL);
+    setProfilPengguna(null);
     setPeranPengguna(null);
     setTahapAplikasi('select_role');
     setPesananSaatIni(null);
@@ -423,12 +505,18 @@ useEffect(() => {
         <AlurAutentikasiPeran
           userRole={peranPengguna}
           onSuccess={(profil) => {
-            setProfilPengguna((prev) => ({
-              ...prev,
+            setProfilPengguna({
               ...profil,
               role: peranPengguna,
-              balance: prev?.balance ?? 150000,
-            }));
+            });
+            if (peranPengguna === 'Pembeli' && profil.address) {
+              setAlamatTujuanSaatIni({
+                label: 'Alamat Utama',
+                street: profil.address,
+                details: `Penerima: ${profil.name} (${profil.phone})`,
+                notes: 'Hubungi penerima saat kurir tiba di lokasi.'
+              });
+            }
             setTahapAplikasi('app');
           }}
           onBackToRoleSelect={() => {
@@ -476,6 +564,7 @@ useEffect(() => {
               namaTokoDilihat ? (
                 <ProfilToko
                   storeProfile={
+                    daftarToko.find((t) => t.name.toLowerCase() === namaTokoDilihat.toLowerCase()) ||
                     STORE_PROFILES[namaTokoDilihat] || {
                       id: `store-${namaTokoDilihat.toLowerCase().replace(/\s+/g, '-')}`,
                       name: namaTokoDilihat,
@@ -519,6 +608,8 @@ useEffect(() => {
                   isStoreOpen={statusTokoBuka}
                   userPreferences={profilPengguna?.preferences}
                   onOpenPreferenceModal={() => setModalPreferensiTerbuka(true)}
+                  storeList={daftarToko}
+                  recommendedMenus={daftarRekomendasi}
                 />
               )
             )}
@@ -558,30 +649,50 @@ useEffect(() => {
             )}
           </>
         ) : (
+          /* ========================================= */
+          /* MODE PENJUAL: MENU PESANAN, KELOLA MENU & STOK, VOUCHER, LAPORAN, & DASHBOARD */
+          /* ========================================= */
           <>
             {tabAktifPenjual === 'pesanan' && (
-              <PesananPenjual
+              <HalamanPesananPenjual
                 showToast={tampilkanToast}
                 onNavigateToDashboard={() => setTabAktifPenjual('dashboard')}
+                userProfile={profilPengguna}
               />
             )}
 
             {tabAktifPenjual === 'stok' && (
-              <KelolaStokPenjual
+              <HalamanKelolaMenu
                 menuList={daftarMenu}
+                onAddMenu={tanganiTambahMenu}
+                onUpdateMenu={tanganiUpdateMenu}
+                onDeleteMenu={tanganiHapusMenu}
                 onToggleStock={tanganiAlihkanStok}
                 onToggleDiscount={tanganiAlihkanDiskon}
                 showToast={tampilkanToast}
               />
             )}
 
+            {tabAktifPenjual === 'voucher' && (
+              <HalamanKelolaVoucher showToast={tampilkanToast} />
+            )}
+
+            {tabAktifPenjual === 'laporan' && (
+              <HalamanLaporanPenjualan
+                onBackToDashboard={() => setTabAktifPenjual('dashboard')}
+              />
+            )}
+
             {tabAktifPenjual === 'dashboard' && (
-              <DashboardPenjual
+              <HalamanDashboardPenjual
                 menuList={daftarMenu}
                 isStoreOpen={statusTokoBuka}
                 onToggleStoreStatus={tanganiAlihkanStatusToko}
-                onNavigateToStock={() => setTabAktifPenjual('stok')}
+                onNavigateToMenu={() => setTabAktifPenjual('stok')}
                 onNavigateToOrders={() => setTabAktifPenjual('pesanan')}
+                onNavigateToVoucher={() => setTabAktifPenjual('voucher')}
+                onNavigateToReport={() => setTabAktifPenjual('laporan')}
+                userProfile={profilPengguna}
               />
             )}
           </>
@@ -614,21 +725,6 @@ useEffect(() => {
           showToast={tampilkanToast}
         />
       )}
-
-      {/* Modal Detail Profil & Data Registrasi (dengan Tombol Reset Data) */}
-      {profilPengguna && peranPengguna && (
-        <ModalProfil
-          isOpen={modalProfilTerbuka}
-          onClose={() => setModalProfilTerbuka(false)}
-          userProfile={profilPengguna}
-          userRole={peranPengguna}
-          isStoreOpen={statusTokoBuka}
-          onOpenPreferenceModal={() => setModalPreferensiTerbuka(true)}
-          onResetData={tanganiResetData}
-          onLogout={tanganiKeluarKeLanding}
-        />
-      )}
-
     </div>
   );
 }

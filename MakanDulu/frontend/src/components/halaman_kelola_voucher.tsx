@@ -209,4 +209,5 @@ const HalamanKelolaVoucher: React.FC<HalamanKelolaVoucherProps> = ({ showToast }
   );
 };
 
+export { HalamanKelolaVoucher };
 export default HalamanKelolaVoucher;

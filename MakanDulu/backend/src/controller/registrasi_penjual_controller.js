@@ -137,11 +137,15 @@ const registerSeller = async (req, res) => {
       user: {
         id: idPenjual,
         name: ownerName.trim(),
+        ownerName: ownerName.trim(),
         email: emailBersih,
         phone: phone.trim(),
         address: storeAddress.trim(),
         role: 'Penjual',
         storeName: storeName.trim(),
+        nibNumber: nibBersih,
+        npwpNumber: npwpBersih,
+        ktpNumber: ktpBersih,
       },
     });
   } catch (error) {

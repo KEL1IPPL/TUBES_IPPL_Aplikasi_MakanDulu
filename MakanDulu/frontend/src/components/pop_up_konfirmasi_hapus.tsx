@@ -48,7 +48,7 @@ const PopupKonfirmasiHapus: React.FC<PopupKonfirmasiHapusProps> = ({
             className="flex-1 py-3 px-4 rounded-xl bg-[#ba1a1a] hover:bg-[#93000a] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95"
           >
             <span className="material-symbols-outlined text-base">delete</span>
-            <span>Hapus Permanen</span>
+            <span>Iya, Hapus</span>
           </button>
         </div>
       </div>

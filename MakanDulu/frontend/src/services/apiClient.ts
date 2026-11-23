@@ -1,5 +1,34 @@
-import { UserProfile } from '../types';
-import { UserPreferences } from '../types';
+import { UserProfile, UserPreferences, MenuItem, StoreProfile } from '../types';
+
+export interface KatalogResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    menus: MenuItem[];
+    rekomendasi: MenuItem[];
+    tokoList: StoreProfile[];
+    preferensi: {
+      rasaFavorit: string[];
+      kategoriFavorit: string[];
+      polaMakan: string[];
+    };
+  };
+}
+
+export interface SearchKatalogResponse {
+  success: boolean;
+  ditemukan: boolean;
+  kataKunci: string;
+  totalHasil?: number;
+  message?: string;
+  data: MenuItem[];
+  rekomendasiAlternatif?: MenuItem[];
+  preferensi?: {
+    rasaFavorit: string[];
+    kategoriFavorit: string[];
+    polaMakan: string[];
+  };
+}
 
 export interface MenuPayload {
   namaMenu: string;
@@ -172,6 +201,80 @@ export const toggleMenuStatus = (idMenu: number) =>
 export const hapusMenu = (idMenu: number) =>
   menuRequest<MenuResponse>(`/api/menu/${idMenu}`, 'DELETE');
 
+export const getProfilPengguna = async (): Promise<AuthResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  if (!token) {
+    throw new ApiError('Token tidak ditemukan.', 401);
+  }
+  const response = await fetch('/api/auth/me', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = (await response.json()) as AuthResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal memuat profil pengguna.', response.status);
+  }
+  return data;
+};
+
+export const getKatalog = async (idPembeli?: number | string): Promise<KatalogResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const query = idPembeli ? `?idPembeli=${idPembeli}` : '';
+  const response = await fetch(`/api/katalog${query}`, { headers });
+  const data = (await response.json()) as KatalogResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal memuat katalog.', response.status, data);
+  }
+  return data;
+};
+
+export const searchKatalog = async (
+  query: string,
+  kategori?: string,
+  idPembeli?: number | string
+): Promise<SearchKatalogResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const params = new URLSearchParams();
+  if (query) params.append('q', query);
+  if (kategori && kategori !== 'all') params.append('kategori', kategori);
+  if (idPembeli) params.append('idPembeli', String(idPembeli));
+
+  const response = await fetch(`/api/katalog/search?${params.toString()}`, { headers });
+  const data = (await response.json()) as SearchKatalogResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal mencari menu.', response.status, data);
+  }
+  return data;
+};
+
+export const getDetailMenuKatalog = async (idMenu: number): Promise<MenuResponse> => {
+  const response = await fetch(`/api/katalog/menu/${idMenu}`);
+  const data = (await response.json()) as MenuResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal memuat detail menu.', response.status, data);
+  }
+  return data;
+};
+
+export const getDaftarTokoKatalog = async (): Promise<{ success: boolean; data: StoreProfile[] }> => {
+  const response = await fetch('/api/katalog/toko');
+  const data = (await response.json()) as { success: boolean; data: StoreProfile[] };
+  if (!response.ok || data.success === false) {
+    throw new ApiError('Gagal memuat daftar toko.', response.status, data);
+  }
+  return data;
+};
+
 const apiClient = {
   getMenus,
   tambahMenu,
@@ -179,6 +282,11 @@ const apiClient = {
   toggleMenuStatus,
   hapusMenu,
   toggleStokMenu: toggleMenuStatus,
+  getProfil: getProfilPengguna,
+  getKatalog,
+  searchKatalog,
+  getDetailMenuKatalog,
+  getDaftarTokoKatalog,
 };
 
 export default apiClient;

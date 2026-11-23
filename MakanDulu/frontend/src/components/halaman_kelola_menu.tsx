@@ -48,8 +48,7 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
   });
 
   /**
-   * handleConfirmDelete — Langkah hapus menu:
-   * Coba hapus via API (MenuController.hapusMenu), fallback ke state lokal.
+   * handleConfirmDelete — Hapus menu melalui MenuController.
    */
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
@@ -58,16 +57,21 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
       try {
         await apiClient.hapusMenu(idMenu);
       } catch (err) {
-        // Jika backend tidak bisa (mis. offline), tetap hapus dari state lokal
-        if (err instanceof ApiError && err.status !== 404) {
-          showToast('Gagal Menghapus', 'Terjadi kesalahan pada server.', true);
+        if (err instanceof ApiError && err.status === 404) {
+          onDeleteMenu(itemToDelete.id);
+        } else {
+          showToast(
+            'Gagal Menghapus',
+            err instanceof Error ? err.message : 'Terjadi kesalahan pada server.',
+            true
+          );
           setItemToDelete(null);
           return;
         }
       }
     }
     onDeleteMenu(itemToDelete.id);
-    showToast('Menu Dihapus', `${itemToDelete.name} telah dihapus dari katalog.`);
+    showToast('Menu Berhasil Dihapus', `Menu "${itemToDelete.name}" berhasil dihapus dari katalog.`);
     setItemToDelete(null);
   };
 
@@ -80,12 +84,18 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
     if (idMenu) {
       try {
         await apiClient.toggleStokMenu(idMenu);
-      } catch {
-        // Fallback ke state lokal
+      } catch (err) {
+        showToast(
+          'Gagal Mengubah Stok',
+          err instanceof Error ? err.message : 'Status tidak dapat diperbarui.',
+          true
+        );
+        setItemToDeactivate(null);
+        return;
       }
     }
     onToggleStock(itemToDeactivate.id);
-    showToast('Status Diubah', `Ketersediaan ${itemToDeactivate.name} berhasil diubah.`);
+    showToast('Menu Berhasil Dinonaktifkan', `Menu "${itemToDeactivate.name}" berhasil dinonaktifkan.`);
     setItemToDeactivate(null);
   };
 
@@ -95,10 +105,19 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
   const handleToggleStokLangsung = async (item: MenuItem) => {
     const idMenu = getIdMenu(item);
     if (idMenu) {
-      try { await apiClient.toggleStokMenu(idMenu); } catch { /* fallback */ }
+      try {
+        await apiClient.toggleStokMenu(idMenu);
+      } catch (err) {
+        showToast(
+          'Gagal Mengubah Stok',
+          err instanceof Error ? err.message : 'Status tidak dapat diperbarui.',
+          true
+        );
+        return;
+      }
     }
     onToggleStock(item.id);
-    showToast('Stok Diaktifkan', `${item.name} kini tersedia.`);
+    showToast('Menu Berhasil Diaktifkan', `Menu "${item.name}" berhasil diaktifkan.`);
   };
 
   return (
@@ -240,7 +259,7 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
                         : 'bg-[#006c49] text-white border-[#006c49]'
                     }`}
                   >
-                    {item.isAvailable ? 'Tandai Habis' : 'Aktifkan Stok'}
+                    {item.isAvailable ? 'Nonaktifkan' : 'Aktifkan'}
                   </button>
 
                   {onToggleDiscount && (
@@ -334,4 +353,5 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
   );
 };
 
+export { HalamanKelolaMenu };
 export default HalamanKelolaMenu;

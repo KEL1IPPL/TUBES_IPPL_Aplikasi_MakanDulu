@@ -43,7 +43,7 @@ const PopUpKonfirmasiNonaktif: React.FC<PopUpKonfirmasiNonaktifProps> = ({
             className="flex-1 py-3 px-4 rounded-xl bg-[#825100] hover:bg-[#a36700] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95"
           >
             <span className="material-symbols-outlined text-base">check</span>
-            <span>Nonaktifkan Stok</span>
+            <span>Iya, Nonaktifkan</span>
           </button>
         </div>
       </div>

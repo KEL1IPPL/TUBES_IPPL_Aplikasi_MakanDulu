@@ -19,12 +19,22 @@ const pool = mysql.createPool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    ssl:{
+    ssl: {
         rejectUnauthorized: false
     },
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+});
+
+// Cegah unhandled error event jika koneksi idle diputus oleh cloud server (Aiven)
+pool.on('error', (err) => {
+    console.error('[db pool error]', err.message);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+        console.warn('[db pool] Koneksi idle terputus dari server database. Pool akan membuat koneksi baru saat ada query berikutnya.');
+    }
 });
 
 const db = pool.promise();

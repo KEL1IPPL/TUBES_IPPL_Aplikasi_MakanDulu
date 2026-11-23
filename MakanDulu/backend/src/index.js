@@ -1,7 +1,21 @@
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('UNHANDLED REJECTION:', reason);
+});
+
+process.on('exit', (code) => {
+  console.log('PROSES BERHENTI DENGAN CODE:', code);
+});
+
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const menuRoutes       = require('./routes/pencarianMenu');
+const katalogRoutes    = require('./routes/katalog_routes');
 const authRoutes       = require('./routes/autentikasiperan');
 const preferenceRoutes = require('./routes/halaman_preferensi_makanan');
 const ocrRoutes        = require('./routes/pembaca_foto');       // ← OCR dokumen legalitas
@@ -15,7 +29,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({
-    origin: 'http://localhost:3000'
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173'
+    ],
+    credentials: true
 }));
 app.use(express.json());
 
@@ -32,6 +53,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth',                      authRoutes);
 app.use('/api/menu',                      menuRoutes);
+app.use('/api/katalog',                   katalogRoutes);
 app.use('/api/halaman-preferensi-makanan', preferenceRoutes);
 
 // Rute OCR dokumen legalitas penjual (KTP, NPWP, NIB)
@@ -58,3 +80,4 @@ app.listen(PORT, async () => {
     });
   }
 });
+

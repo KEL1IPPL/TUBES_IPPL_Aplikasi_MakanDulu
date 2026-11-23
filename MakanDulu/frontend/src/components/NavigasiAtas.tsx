@@ -44,9 +44,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#f9f9ff]/95 backdrop-blur-xl shadow-xs border-b border-[#dee8ff]">
-      {/* ========================================================================= */}
-      {/* 1. BARIS ATAS: HANYA BERISI MERK MAKANDULU & PROFIL PENGGUNA */}
-      {/* ========================================================================= */}
       <div className="h-16 w-full px-4 sm:px-6 lg:px-10 flex items-center justify-between border-b border-[#dee8ff]/60">
         {/* Merk MakanDulu */}
         <div
@@ -130,18 +127,24 @@ export const Header: React.FC<HeaderProps> = ({
               <img
                 alt="Profile Avatar"
                 className="w-8 h-8 rounded-full object-cover border border-[#dee8ff]"
-                src={
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
                   userRole === 'Pembeli'
-                    ? SITI_AVATAR_URL
-                    : 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=300&q=80'
-                }
+                    ? (userProfile?.name || 'Pembeli')
+                    : (userProfile?.storeName || userProfile?.name || 'Resto')
+                )}&background=${userRole === 'Pembeli' ? 'ffdbce' : 'ffddb8'}&color=${
+                  userRole === 'Pembeli' ? 'a33900' : '825100'
+                }&bold=true`}
               />
               <div className="hidden sm:flex flex-col text-left">
-                <span className="text-xs font-bold text-[#111c2d] leading-snug">
-                  {userProfile?.name || (userRole === 'Pembeli' ? 'Siti Rahma' : 'Resto Juara')}
+                <span className="text-xs font-bold text-[#111c2d] leading-snug truncate max-w-[140px]">
+                  {userRole === 'Pembeli'
+                    ? (userProfile?.name || 'Akun Pembeli')
+                    : (userProfile?.storeName || userProfile?.name || 'Mitra Resto')}
                 </span>
-                <span className="text-[10px] text-[#006c49] font-extrabold leading-none">
-                  {userRole === 'Pembeli' ? 'Food Explorer' : userProfile?.storeName || 'Mitra Resto'}
+                <span className="text-[10px] text-[#006c49] font-extrabold leading-none truncate max-w-[140px]">
+                  {userRole === 'Pembeli'
+                    ? 'Food Explorer'
+                    : (userProfile?.name ? `Pemilik: ${userProfile.name}` : 'Mitra Kuliner')}
                 </span>
               </div>
             </div>
@@ -202,19 +205,6 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                   )}
 
-                  {onOpenPortalModal && (
-                    <button
-                      onClick={() => {
-                        onOpenPortalModal();
-                        setTampilkanMenuProfil(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs text-[#111c2d] hover:bg-[#f0f3ff] rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <span className="material-symbols-outlined text-sm text-[#5a4138]">switch_account</span>
-                      <span>Portal Registrasi & Login</span>
-                    </button>
-                  )}
-
                   <button
                     onClick={() => {
                       onLogout();
@@ -231,10 +221,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
-
-      {/* ========================================================================= */}
-      {/* 2. BARIS KEDUA: BAR MENU (KATALOG MENU, PENGIRIMAN) */}
-      {/* ========================================================================= */}
       <div className="h-12 w-full px-4 sm:px-6 lg:px-10 bg-[#f0f3ff] border-t border-[#dee8ff]/80 flex items-center justify-start overflow-x-auto gap-2">
         {userRole === 'Pembeli' ? (
           /* Menu Bar Pembeli: Katalog Menu, Pengiriman */
@@ -274,7 +260,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
         ) : (
-          /* Menu Bar Penjual: Menu Pesanan, Kelola Stok, Dashboard */
+          /* Menu Bar Penjual: Menu Pesanan, Kelola Menu & Stok, Kelola Voucher, Laporan, Dashboard */
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActivePenjualTab('pesanan')}
@@ -285,7 +271,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-base">receipt_long</span>
-              <span>Pesanan Masuk</span>
+              <span>Menu Pesanan (10 Mnt)</span>
             </button>
 
             <button
@@ -297,7 +283,31 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-base">inventory_2</span>
-              <span>Kelola Stok</span>
+              <span>Kelola Menu & Stok</span>
+            </button>
+
+            <button
+              onClick={() => setActivePenjualTab('voucher')}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activePenjualTab === 'voucher'
+                  ? 'bg-[#825100] text-white shadow-xs'
+                  : 'text-[#5a4138] hover:text-[#111c2d] hover:bg-[#dee8ff]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">loyalty</span>
+              <span>Kelola Voucher</span>
+            </button>
+
+            <button
+              onClick={() => setActivePenjualTab('laporan')}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activePenjualTab === 'laporan'
+                  ? 'bg-[#825100] text-white shadow-xs'
+                  : 'text-[#5a4138] hover:text-[#111c2d] hover:bg-[#dee8ff]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">monitoring</span>
+              <span>Laporan Omzet</span>
             </button>
 
             <button
@@ -308,7 +318,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'text-[#5a4138] hover:text-[#111c2d] hover:bg-[#dee8ff]'
               }`}
             >
-              <span className="material-symbols-outlined text-base">monitoring</span>
+              <span className="material-symbols-outlined text-base">dashboard</span>
               <span>Dashboard Merchant</span>
             </button>
           </div>

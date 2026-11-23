@@ -26,6 +26,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   if (!isOpen) return null;
 
   const isPembeli = userRole === 'Pembeli';
+  const displayName = isPembeli ? (userProfile.name || 'Pembeli') : (userProfile.storeName || userProfile.name || 'Resto');
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=${isPembeli ? 'ffdbce' : 'ffddb8'}&color=${isPembeli ? 'a33900' : '825100'}&bold=true`;
 
   return (
     <div className="fixed inset-0 z-50 bg-[#111c2d]/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
@@ -51,11 +53,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         <div className="my-6 p-5 rounded-3xl bg-white border border-[#dee8ff] shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-4">
           <div className="relative">
             <img
-              src={
-                isPembeli
-                  ? SITI_AVATAR_URL
-                  : 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=300&q=80'
-              }
+              src={avatarUrl}
               alt="Avatar"
               className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md"
             />
@@ -72,7 +70,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-lg font-extrabold text-[#111c2d]">
-                  {isPembeli ? userProfile.name : userProfile.storeName || 'Resto Bebek Juara'}
+                  {isPembeli ? userProfile.name : userProfile.storeName || userProfile.name}
                 </h3>
                 <p className="text-xs text-[#5a4138]">
                   {isPembeli
@@ -116,7 +114,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               Keterangan Data Waktu Pendaftaran
             </h4>
             <span className="text-[10px] text-[#5a4138]">
-              Terdaftar: {userProfile.registeredAt || '20 Oktober 2026'}
+              {userProfile.registeredAt ? `Terdaftar: ${userProfile.registeredAt}` : 'Terdaftar Resmi di Database'}
             </span>
           </div>
 
@@ -179,23 +177,29 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 <div className="p-2.5 rounded-xl bg-[#f0f3ff] border border-[#dee8ff]">
                   <span className="text-[10px] text-[#5a4138] block font-bold">Nomor NIB (OSS RI)</span>
                   <span className="font-mono font-bold text-[#111c2d]">
-                    {userProfile.nibNumber || '9120003849182'}
+                    {userProfile.nibNumber || '-'}
                   </span>
-                  <span className="text-[9px] text-[#006c49] font-bold block mt-0.5">✓ Terverifikasi</span>
+                  <span className="text-[9px] text-[#006c49] font-bold block mt-0.5">
+                    {userProfile.nibNumber ? '✓ Terverifikasi Database' : 'Belum Terdaftar'}
+                  </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#f0f3ff] border border-[#dee8ff]">
                   <span className="text-[10px] text-[#5a4138] block font-bold">KTP Pemilik Usaha</span>
                   <span className="font-mono font-bold text-[#111c2d]">
-                    {userProfile.ktpNumber || '3174**********01'}
+                    {userProfile.ktpNumber || '-'}
                   </span>
-                  <span className="text-[9px] text-[#006c49] font-bold block mt-0.5">✓ Terverifikasi</span>
+                  <span className="text-[9px] text-[#006c49] font-bold block mt-0.5">
+                    {userProfile.ktpNumber ? '✓ Terverifikasi Database' : 'Belum Terdaftar'}
+                  </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#f0f3ff] border border-[#dee8ff]">
                   <span className="text-[10px] text-[#5a4138] block font-bold">NPWP Badan / Toko</span>
                   <span className="font-mono font-bold text-[#111c2d]">
-                    {userProfile.npwpNumber || '82.193.***.*-013.000'}
+                    {userProfile.npwpNumber || '-'}
                   </span>
-                  <span className="text-[9px] text-[#006c49] font-bold block mt-0.5">✓ Terverifikasi</span>
+                  <span className="text-[9px] text-[#006c49] font-bold block mt-0.5">
+                    {userProfile.npwpNumber ? '✓ Terverifikasi Database' : 'Belum Terdaftar'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -279,23 +283,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <span className="material-symbols-outlined text-base">logout</span>
               <span>Keluar Akun</span>
             </button>
-
-            {onResetData && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Apakah Anda yakin ingin mereset seluruh data simulasi ke kondisi awal?')) {
-                    onResetData();
-                    onClose();
-                  }
-                }}
-                className="px-3 py-2.5 rounded-xl bg-[#f0f3ff] hover:bg-[#dee8ff] text-[#5a4138] text-xs font-semibold border border-[#dee8ff] transition-all flex items-center gap-1"
-                title="Kembalikan semua data ke setelan bawaan pabrik"
-              >
-                <span className="material-symbols-outlined text-sm">restart_alt</span>
-                <span>Reset Data</span>
-              </button>
-            )}
           </div>
 
           <button

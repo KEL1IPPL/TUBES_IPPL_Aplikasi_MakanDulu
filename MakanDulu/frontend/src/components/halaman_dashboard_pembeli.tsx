@@ -123,7 +123,11 @@ const HalamanDashboardPembeli: React.FC<HalamanDashboardPembeliProps> = ({
             <div
               key={menu.id}
               onClick={() => onSelectMenu(menu)}
-              className="group cursor-pointer rounded-2xl bg-[#f9f9ff] hover:bg-white p-3 border border-[#dee8ff] hover:border-[#a33900] transition-all shadow-2xs hover:shadow-md flex flex-col justify-between"
+              className={`group cursor-pointer rounded-2xl p-3 border transition-all shadow-2xs hover:shadow-md flex flex-col justify-between ${
+                menu.isAvailable
+                  ? 'bg-[#f9f9ff] hover:bg-white border-[#dee8ff] hover:border-[#a33900]'
+                  : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale'
+              }`}
             >
               <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3">
                 <img
@@ -131,9 +135,15 @@ const HalamanDashboardPembeli: React.FC<HalamanDashboardPembeliProps> = ({
                   alt={menu.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
-                  ★ {menu.rating}
-                </span>
+                {!menu.isAvailable ? (
+                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#ba1a1a] text-white text-[10px] font-bold">
+                    Habis
+                  </span>
+                ) : (
+                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
+                    ★ {menu.rating}
+                  </span>
+                )}
               </div>
               <div>
                 <span className="text-[10px] font-bold text-[#a33900] block">{menu.restaurant}</span>

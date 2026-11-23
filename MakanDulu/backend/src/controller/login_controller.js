@@ -33,15 +33,25 @@ const login = async (req, res) => {
       if (rows.length > 0) user = { ...rows[0], role: 'Pembeli' };
     } else {
       const [rows] = await db.execute(
-        `SELECT idPenjual AS id, namaPemilik AS name, email, password,
-                nomorTelepon AS phone, alamatToko AS address, namaToko AS storeName
+        `SELECT idPenjual AS id, namaPemilik AS name, namaPemilik AS ownerName, email, password,
+                nomorTelepon AS phone, alamatToko AS address, namaToko AS storeName,
+                NIB AS nibNumber, NPWP AS npwpNumber, KTP AS ktpNumber
          FROM Penjual WHERE email = ?`,
         [emailBersih]
       );
       if (rows.length > 0) user = { ...rows[0], role: 'Penjual' };
     }
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    let isMatch = false;
+    if (user && user.password) {
+      if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+        isMatch = await bcrypt.compare(password, user.password);
+      } else {
+        isMatch = (password === user.password);
+      }
+    }
+
+    if (!user || !isMatch) {
       return res.status(401).json({
         success: false,
         message: 'Email atau kata sandi salah.',
@@ -70,4 +80,55 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { login };
+//Mengambil data profil pengguna yang sedang login berdasarkan token JWT
+const getProfile = async (req, res) => {
+  try {
+    const { id, role } = req.user || {};
+    if (!id || !role) {
+      return res.status(401).json({
+        success: false,
+        message: 'Identitas pengguna pada token tidak valid.',
+      });
+    }
+
+    let user = null;
+    if (role === 'Pembeli') {
+      const [rows] = await db.execute(
+        `SELECT idPembeli AS id, nama AS name, email,
+                nomorTelepon AS phone, alamat AS address
+         FROM Pembeli WHERE idPembeli = ?`,
+        [id]
+      );
+      if (rows.length > 0) user = { ...rows[0], role: 'Pembeli' };
+    } else {
+      const [rows] = await db.execute(
+        `SELECT idPenjual AS id, namaPemilik AS name, namaPemilik AS ownerName, email,
+                nomorTelepon AS phone, alamatToko AS address, namaToko AS storeName,
+                NIB AS nibNumber, NPWP AS npwpNumber, KTP AS ktpNumber
+         FROM Penjual WHERE idPenjual = ?`,
+        [id]
+      );
+      if (rows.length > 0) user = { ...rows[0], role: 'Penjual' };
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Data profil pengguna tidak ditemukan di database.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    console.error('[getProfile] Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil data profil dari database.',
+    });
+  }
+};
+
+module.exports = { login, getProfile };

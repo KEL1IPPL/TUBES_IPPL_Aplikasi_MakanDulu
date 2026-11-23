@@ -116,31 +116,11 @@ const HalamanFormMenu: React.FC<HalamanFormMenuProps> = ({
           showToast('Gagal Menyimpan', body?.message || 'Terjadi kesalahan.', true);
         }
       } else {
-        // Fallback: simpan lokal jika backend tidak tersedia
-        const newMenuItem: MenuItem = {
-          id:            `menu-local-${Date.now()}`,
-          name:          name.trim(),
-          restaurant:    restaurantName,
-          distance:      '1.2 km',
-          price:         Number(price),
-          originalPrice: originalPrice ? Number(originalPrice) : undefined,
-          discountPercentage:
-            originalPrice && originalPrice > price
-              ? Math.round(((originalPrice - price) / originalPrice) * 100)
-              : undefined,
-          rating:        5.0,
-          reviewCount:   '1 ulasan baru',
-          tag:           'Menu Baru',
-          tasteCategory,
-          category,
-          description:   description.trim() || 'Menu istimewa racikan bumbu khas dapur resto.',
-          imageUrl:      imageUrl.trim() || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
-          isAvailable,
-          modifier:      modifier.trim() || undefined,
-          salesCount:    '0 porsi',
-        };
-        onSaveMenu(newMenuItem);
-        showToast('Tersimpan Lokal', 'Backend tidak terjangkau. Menu disimpan sementara secara lokal.', false);
+        showToast(
+          'Gagal Menyimpan',
+          err instanceof Error ? err.message : 'Backend menu tidak dapat dijangkau.',
+          true
+        );
       }
     } finally {
       setIsSubmitting(false);

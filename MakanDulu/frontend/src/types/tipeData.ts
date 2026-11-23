@@ -1,7 +1,7 @@
 export type UserRole = 'Pembeli' | 'Penjual' | null;
 
-export type PembeliTab = 'katalog' | 'keranjang' | 'tracking';
-export type PenjualTab = 'pesanan' | 'stok' | 'dashboard';
+export type PembeliTab = 'katalog' | 'keranjang' | 'tracking' | 'riwayat' | 'voucher';
+export type PenjualTab = 'pesanan' | 'stok' | 'dashboard' | 'voucher' | 'laporan';
 export type ActiveTab = PembeliTab | PenjualTab | 'portal';
 
 export interface MenuItem {
@@ -110,6 +110,7 @@ export interface UserPreferences {
 }
 
 export interface UserProfile {
+  id?: number | string;
   name: string;
   email: string;
   phone: string;

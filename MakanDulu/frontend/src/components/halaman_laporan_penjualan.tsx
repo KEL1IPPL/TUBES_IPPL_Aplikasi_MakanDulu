@@ -107,4 +107,5 @@ const HalamanLaporanPenjualan: React.FC<HalamanLaporanPenjualanProps> = ({ onBac
   );
 };
 
+export { HalamanLaporanPenjualan };
 export default HalamanLaporanPenjualan;

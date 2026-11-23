@@ -1,25 +1,10 @@
-/**
- * MenuController — Alur Tambah Menu Makanan oleh Penjual
- *
- * Diagram Robustness:
- *   Boundary (halaman_kelola_menu) → tampilkan form menu → Control (MenuController)
- *   Control → tampilkan form → Boundary (halaman_form_menu)
- *   Boundary (halaman_form_menu) → tambah_menu → Control (MenuController)
- *   Control → 6. validasi input
- *   Control [valid] → 7. simpan_menu → Entity (Menu)
- *   Entity → 8. menu_ditambahkan → Control
- *   Control → 9. tampilkan pesan "Menu Berhasil Ditambahkan" → Boundary
- */
-
 const db = require('../config/db');
 
 /** Kategori yang diperbolehkan sesuai frontend */
 const KATEGORI_VALID = ['ayam-bebek', 'mie-bakso', 'nasi-bakar', 'camilan', 'minuman'];
 const RASA_VALID     = ['pedas', 'gurih', 'manis', 'asam', 'asin'];
 
-/* ------------------------------------------------------------------ */
-/* HELPER: Validasi Input (langkah 6 pada diagram)                     */
-/* ------------------------------------------------------------------ */
+
 const validasiInputMenu = (body) => {
   const errors = [];
 
@@ -75,9 +60,6 @@ const validasiInputMenu = (body) => {
   return errors;
 };
 
-/* ------------------------------------------------------------------ */
-/* POST /api/menu — Tambah Menu Baru (langkah 5–9 pada diagram)        */
-/* ------------------------------------------------------------------ */
 const tambahMenu = async (req, res) => {
   // Ambil idPenjual dari JWT (di-inject oleh middleware authenticateToken)
   const idPenjual = req.user?.id;
@@ -123,8 +105,8 @@ const tambahMenu = async (req, res) => {
     const [result] = await db.execute(
       `INSERT INTO Menu
          (idPenjual, namaMenu, kategori, harga, hargaNormal, diskonPersen,
-          deskripsi, fotoUrl, rasaKarakter, modifier, statusAktif)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          deskripsi, foto, fotoUrl, rasaKarakter, modifier, statusAktif)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         idPenjual,
         namaMenu.trim(),
@@ -133,6 +115,7 @@ const tambahMenu = async (req, res) => {
         hargaNormalNum,
         diskonPersen,
         (deskripsi || '').trim() || null,
+        (fotoUrl   || '').trim() || null,
         (fotoUrl   || '').trim() || null,
         rasaStr || null,
         (modifier  || '').trim() || null,
@@ -156,7 +139,7 @@ const tambahMenu = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: `Menu "${menuBaru.namaMenu}" berhasil ditambahkan ke katalog.`,
+      message: 'Menu Berhasil Ditambahkan',
       data: {
         id:              `menu-${menuBaru.idMenu}`,
         idMenu:          menuBaru.idMenu,
@@ -201,7 +184,7 @@ const getMenuPenjual = async (req, res) => {
   try {
     const [rows] = await db.execute(
       `SELECT idMenu, namaMenu, kategori, harga, hargaNormal, diskonPersen,
-              deskripsi, fotoUrl, rasaKarakter, modifier, statusAktif, createdAt
+              deskripsi, COALESCE(fotoUrl, foto) AS fotoUrl, rasaKarakter, modifier, statusAktif, createdAt
        FROM Menu
        WHERE idPenjual = ?
        ORDER BY createdAt DESC`,
@@ -276,10 +259,10 @@ const updateMenu = async (req, res) => {
     await db.execute(
       `UPDATE Menu SET
          namaMenu=?, kategori=?, harga=?, hargaNormal=?, diskonPersen=?,
-         deskripsi=?, fotoUrl=?, rasaKarakter=?, modifier=?, statusAktif=?
+         deskripsi=?, foto=?, fotoUrl=?, rasaKarakter=?, modifier=?, statusAktif=?
        WHERE idMenu=? AND idPenjual=?`,
       [namaMenu.trim(), kategori, hargaNum, hargaNormalNum, diskonPersen,
-       (deskripsi||'').trim()||null, (fotoUrl||'').trim()||null,
+       (deskripsi||'').trim()||null, (fotoUrl||'').trim()||null, (fotoUrl||'').trim()||null,
        rasaStr||null, (modifier||'').trim()||null, aktif, idMenu, idPenjual]
     );
     return res.status(200).json({ success: true, message: `Menu "${namaMenu.trim()}" berhasil diperbarui.` });
@@ -309,7 +292,7 @@ const toggleStatusMenu = async (req, res) => {
     await db.execute('UPDATE Menu SET statusAktif=? WHERE idMenu=?', [statusBaru, idMenu]);
     return res.status(200).json({
       success: true,
-      message: `Status menu berhasil diubah menjadi ${statusBaru ? 'Tersedia' : 'Habis'}.`,
+      message: statusBaru ? 'Menu berhasil diaktifkan' : 'Menu berhasil dinonaktifkan',
       data: { isAvailable: Boolean(statusBaru) },
     });
   } catch (error) {
@@ -334,7 +317,7 @@ const hapusMenu = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Menu tidak ditemukan.' });
     }
-    return res.status(200).json({ success: true, message: 'Menu berhasil dihapus dari katalog.' });
+    return res.status(200).json({ success: true, message: 'menu berhasil dihapus' });
   } catch (error) {
     console.error('[MenuController.hapusMenu] Error:', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menghapus menu.' });

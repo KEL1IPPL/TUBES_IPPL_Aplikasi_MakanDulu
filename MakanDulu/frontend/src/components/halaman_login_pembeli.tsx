@@ -47,7 +47,7 @@ const HalamanLoginPembeli: React.FC<HalamanLoginPembeliProps> = ({
       const data = await login({ email: email.trim(), password, role: 'Pembeli' });
       if (!data.token || !data.user) throw new Error(data.message || 'Respons login tidak lengkap.');
       localStorage.setItem('makandulu_token', data.token);
-      const profile: UserProfile = { ...data.user, role: 'Pembeli', balance: 150000 };
+      const profile: UserProfile = { ...data.user, role: 'Pembeli' };
       showToast('Login Berhasil', `Selamat datang kembali, ${profile.name}.`);
       onSuccess(profile);
     } catch (error) {

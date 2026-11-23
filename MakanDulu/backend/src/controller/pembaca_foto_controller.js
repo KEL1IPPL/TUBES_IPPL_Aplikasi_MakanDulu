@@ -2,9 +2,6 @@
 
 const Tesseract = require('tesseract.js');
 
-// ---------------------------------------------------------------------------
-// Helper: Jalankan OCR pada buffer gambar, kembalikan teks mentah
-// ---------------------------------------------------------------------------
 const bacaTeks = async (buffer) => {
   const { data } = await Tesseract.recognize(buffer, 'ind', {
     // Tingkatkan akurasi angka dengan OEM LSTM + PSM Block
@@ -13,10 +10,6 @@ const bacaTeks = async (buffer) => {
   });
   return data.text;
 };
-
-// ---------------------------------------------------------------------------
-// Ekstraktor angka spesifik per dokumen
-// ---------------------------------------------------------------------------
 
 /**
  * Ekstrak NIK (Nomor Induk Kependudukan) dari teks OCR KTP.
@@ -80,10 +73,6 @@ const ekstrakNIB = (teks) => {
   return blok ? blok[0] : null;
 };
 
-// ---------------------------------------------------------------------------
-// Controller: baca satu dokumen KTP → kembalikan NIK
-// POST /api/dokumen/baca/ktp   (field: "ktp")
-// ---------------------------------------------------------------------------
 const bacaKTP = async (req, res) => {
   try {
     if (!req.file) {
@@ -108,10 +97,6 @@ const bacaKTP = async (req, res) => {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Controller: baca satu dokumen NPWP → kembalikan nomor NPWP
-// POST /api/dokumen/baca/npwp   (field: "npwp")
-// ---------------------------------------------------------------------------
 const bacaNPWP = async (req, res) => {
   try {
     if (!req.file) {
@@ -136,10 +121,6 @@ const bacaNPWP = async (req, res) => {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Controller: baca satu dokumen NIB → kembalikan nomor izin berusaha
-// POST /api/dokumen/baca/nib   (field: "nib")
-// ---------------------------------------------------------------------------
 const bacaNIB = async (req, res) => {
   try {
     if (!req.file) {
@@ -164,12 +145,6 @@ const bacaNIB = async (req, res) => {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Controller: baca SEMUA dokumen legalitas sekaligus (batch)
-// POST /api/dokumen/baca/legalitas
-// fields: "ktpFile", "npwpFile", "nibFile"
-// Hasil dikirim ke frontend → frontend submit ke registrasi_penjual_controller
-// ---------------------------------------------------------------------------
 const bacaDokumenLegalitas = async (req, res) => {
   try {
     const berkas = req.files || {};
@@ -224,9 +199,6 @@ const bacaDokumenLegalitas = async (req, res) => {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Ekspor
-// ---------------------------------------------------------------------------
 module.exports = {
   bacaKTP,
   bacaNPWP,

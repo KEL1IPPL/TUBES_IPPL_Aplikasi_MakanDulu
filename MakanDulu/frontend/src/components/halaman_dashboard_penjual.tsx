@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MenuItem } from '../types';
+import { MenuItem, UserProfile } from '../types';
 
 interface HalamanDashboardPenjualProps {
   menuList: MenuItem[];
@@ -9,6 +9,7 @@ interface HalamanDashboardPenjualProps {
   onNavigateToOrders: () => void;
   onNavigateToVoucher: () => void;
   onNavigateToReport: () => void;
+  userProfile?: UserProfile | null;
 }
 
 const HalamanDashboardPenjual: React.FC<HalamanDashboardPenjualProps> = ({
@@ -18,7 +19,8 @@ const HalamanDashboardPenjual: React.FC<HalamanDashboardPenjualProps> = ({
   onNavigateToMenu,
   onNavigateToOrders,
   onNavigateToVoucher,
-  onNavigateToReport
+  onNavigateToReport,
+  userProfile
 }) => {
   const [timerRemaining, setTimerRemaining] = useState(540); // 9 minutes remaining
 
@@ -50,11 +52,11 @@ const HalamanDashboardPenjual: React.FC<HalamanDashboardPenjualProps> = ({
             </span>
           </div>
           <h1 className="text-2xl font-black text-[#111c2d]">
-            Resto Bebek Juara • {isStoreOpen ? 'Toko Buka' : 'Toko Tutup'}
+            {userProfile?.storeName || 'Resto Mitra'} • {isStoreOpen ? 'Toko Buka' : 'Toko Tutup'}
           </h1>
           <p className="text-xs text-[#5a4138]">
             {isStoreOpen
-              ? 'Resto sedang aktif menerima pesanan dari pelanggan sekitar Jakarta Selatan.'
+              ? `${userProfile?.storeName || 'Resto'} sedang aktif menerima pesanan dari pelanggan di ${userProfile?.address || 'sekitar Anda'}.`
               : 'Resto sedang tutup sementara. Pelanggan tidak dapat membuat pesanan baru.'}
           </p>
         </div>
@@ -214,4 +216,5 @@ const HalamanDashboardPenjual: React.FC<HalamanDashboardPenjualProps> = ({
   );
 };
 
+export { HalamanDashboardPenjual };
 export default HalamanDashboardPenjual;

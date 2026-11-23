@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MenuItem, CartItem, DeliveryAddress, PaymentMethod, EWalletProvider, BankProvider, UserPreferences } from '../types';
+import { MenuItem, CartItem, DeliveryAddress, PaymentMethod, EWalletProvider, BankProvider, UserPreferences, StoreProfile } from '../types';
 import { STORE_PROFILES } from '../data/dataMock';
+import HalamanDetailMenu from '../components/halaman_detail_menu';
+import HalamanHasilPencarian from '../components/halaman_hasil_pencarian';
+import apiClient, { SearchKatalogResponse } from '../services/apiClient';
 
 interface HalamanCheckoutProps {
   menuList: MenuItem[];
@@ -15,6 +18,8 @@ interface HalamanCheckoutProps {
   isStoreOpen?: boolean;
   userPreferences?: UserPreferences;
   onOpenPreferenceModal?: () => void;
+  storeList?: StoreProfile[];
+  recommendedMenus?: MenuItem[];
 }
 
 export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
@@ -29,10 +34,17 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
   onOpenStoreProfile,
   isStoreOpen = true,
   userPreferences,
-  onOpenPreferenceModal
+  onOpenPreferenceModal,
+  storeList,
+  recommendedMenus,
 }) => {
-  // Status pencarian dan penyaringan katalog
-  const [kataKunciPencarian, setKataKunciPencarian] = useState('Nasi Bebek Madura');
+  // Status pencarian dan penyaringan katalog sesuai alur Robustness
+  const [kataKunciPencarian, setKataKunciPencarian] = useState('');
+  const [hasilPencarian, setHasilPencarian] = useState<SearchKatalogResponse | null>(null);
+  const [sedangMencari, setSedangMencari] = useState(false);
+  const [isModePencarian, setIsModePencarian] = useState(false);
+  const [menuDetailTerpilih, setMenuDetailTerpilih] = useState<MenuItem | null>(null);
+
   const [filterKategoriAktif, setFilterKategoriAktif] = useState('all');
   const [statusKuponDiterapkan, setStatusKuponDiterapkan] = useState(false);
   const [metodePembayaranDipilih, setMetodePembayaranDipilih] = useState<PaymentMethod>('ewallet');
@@ -91,14 +103,47 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
     }
   };
 
+  // Jalankan pencarian via katalog_controller (Alternative Flow #1 & #2)
+  const jalankanPencarian = async (query: string) => {
+    if (!query.trim()) {
+      setIsModePencarian(false);
+      setHasilPencarian(null);
+      return;
+    }
+
+    setIsModePencarian(true);
+    setSedangMencari(true);
+
+    try {
+      const res = await apiClient.searchKatalog(query.trim(), filterKategoriAktif);
+      setHasilPencarian(res);
+      if (res.ditemukan) {
+        showToast('Pencarian Berhasil', `Ditemukan ${res.totalHasil ?? res.data.length} menu.`);
+      } else {
+        showToast('Menu Tidak Ditemukan', 'Menampilkan rekomendasi alternatif sesuai preferensi.', true);
+      }
+    } catch (err) {
+      console.error('Error saat pencarian katalog:', err);
+      showToast('Pencarian Gagal', 'Gagal memproses pencarian katalog ke backend.', true);
+    } finally {
+      setSedangMencari(false);
+    }
+  };
+
+  const resetPencarian = () => {
+    setKataKunciPencarian('');
+    setIsModePencarian(false);
+    setHasilPencarian(null);
+  };
+
   // Fungsi internal menambahkan item ke keranjang
-  const eksekusiTambahMenu = (menu: MenuItem, timpaKeranjang = false) => {
+  const eksekusiTambahMenu = (menu: MenuItem, timpaKeranjang = false, qty = 1, notes?: string) => {
     setCart((sebelumnya) => {
       const daftarDasar = timpaKeranjang ? [] : sebelumnya;
       const sudahAda = daftarDasar.find((x) => x.menuId === menu.id || x.name === menu.name);
       if (sudahAda) {
         return daftarDasar.map((x) =>
-          x.id === sudahAda.id ? { ...x, qty: x.qty + 1 } : x
+          x.id === sudahAda.id ? { ...x, qty: x.qty + qty, sublabel: notes || x.sublabel } : x
         );
       }
       return [
@@ -108,18 +153,18 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
           menuId: menu.id,
           name: menu.name,
           price: menu.price,
-          qty: 1,
-          sublabel: menu.modifier || 'Rasa Autentik Gurih',
+          qty: qty,
+          sublabel: notes || menu.modifier || 'Rasa Autentik Gurih',
           restaurant: menu.restaurant
         }
       ];
     });
 
-    showToast('Berhasil Ditambahkan', `1x ${menu.name} telah masuk ke keranjang belanja.`);
+    showToast('Berhasil Ditambahkan', `${qty}x ${menu.name} telah masuk ke keranjang belanja.`);
   };
 
   // Menambahkan menu dengan aturan 1 Pesanan = 1 Toko
-  const tambahMenuKeKeranjang = (menu: MenuItem) => {
+  const tambahMenuKeKeranjang = (menu: MenuItem, qty = 1, notes?: string) => {
     if (!isStoreOpen) {
       showToast('Toko Sedang Tutup', `${menu.restaurant} sedang tutup dan tidak menerima pesanan saat ini.`, true);
       return;
@@ -143,7 +188,7 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
       }
     }
 
-    eksekusiTambahMenu(menu, false);
+    eksekusiTambahMenu(menu, false, qty, notes);
   };
 
   const konfirmasiGantiToko = () => {
@@ -289,9 +334,13 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
     return true;
   });
 
-  const daftarRekomendasi = menuSesuaiPreferensi.length > 0
-    ? menuSesuaiPreferensi
-    : menuList.filter((x) => x.rating >= 4.8).slice(0, 4);
+  const daftarRekomendasi = (recommendedMenus && recommendedMenus.length > 0)
+    ? recommendedMenus
+    : (menuSesuaiPreferensi.length > 0
+        ? menuSesuaiPreferensi
+        : menuList.filter((x) => x.rating >= 4.8).slice(0, 4));
+
+  const daftarTokoAktif = storeList && storeList.length > 0 ? storeList : Object.values(STORE_PROFILES);
 
   // Menu tersaring pencarian & tombol filter
   const menuTersaring = menuList.filter((item) => {
@@ -333,12 +382,17 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
               type="text"
               value={kataKunciPencarian}
               onChange={(e) => setKataKunciPencarian(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  jalankanPencarian(kataKunciPencarian);
+                }
+              }}
               placeholder="Cari makanan favorit, bebek bumbu hitam, bakso, nama resto..."
               className="w-full pl-11 pr-10 py-2.5 bg-white text-[#111c2d] rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#cc4900] transition-all border border-[#dee8ff] shadow-2xs"
             />
             {kataKunciPencarian && (
               <button
-                onClick={() => setKataKunciPencarian('')}
+                onClick={resetPencarian}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a4138] hover:text-[#111c2d] p-1 rounded-full transition-colors"
                 title="Bersihkan Pencarian"
                 type="button"
@@ -354,7 +408,7 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
               if (!kataKunciPencarian.trim()) {
                 showToast('Input Kosong', 'Ketik kata kunci nama makanan atau resto.', true);
               } else {
-                showToast('Pencarian Diproses', `Mencari menu '${kataKunciPencarian}' dari resto terdekat...`);
+                jalankanPencarian(kataKunciPencarian);
               }
             }}
             className="px-4 sm:px-5 py-2.5 bg-[#a33900] text-white rounded-2xl text-xs sm:text-sm font-bold hover:bg-[#cc4900] shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
@@ -365,10 +419,29 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. REKOMENDASI DI BAWAH SEARCH (MENU PILIHAN SESUAI SELERA / RATING TERTINGGI) */}
-      {/* ========================================================================= */}
-      <section className="w-full px-4 sm:px-6 lg:px-12 pt-5 pb-2">
+      {/* Jika dalam mode pencarian (Alternative Flow #1 & #2), tampilkan Boundary HalamanHasilPencarian */}
+      {isModePencarian ? (
+        <section className="w-full px-4 sm:px-6 lg:px-12 py-6 max-w-7xl mx-auto">
+          <HalamanHasilPencarian
+            searchQuery={kataKunciPencarian}
+            onSearchChange={(q) => {
+              setKataKunciPencarian(q);
+              jalankanPencarian(q);
+            }}
+            onResetSearch={resetPencarian}
+            isSearching={sedangMencari}
+            searchResult={hasilPencarian}
+            onSelectMenu={(menu) => setMenuDetailTerpilih(menu)}
+            onAddToCart={(menu) => tambahMenuKeKeranjang(menu)}
+            userPreferences={userPreferences}
+          />
+        </section>
+      ) : (
+        <>
+          {/* ========================================================================= */}
+          {/* 2. REKOMENDASI DI BAWAH SEARCH (MENU PILIHAN SESUAI SELERA / RATING TERTINGGI) */}
+          {/* ========================================================================= */}
+          <section className="w-full px-4 sm:px-6 lg:px-12 pt-5 pb-2">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-3xl bg-gradient-to-br from-[#fff7f4] via-[#ffede6] to-[#f0f3ff] p-5 sm:p-7 border-2 border-[#ffdbce] shadow-xs">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-[#ffdbce]">
@@ -453,20 +526,29 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                     <span className="text-sm font-extrabold text-[#111c2d]">
                       Rp {item.price.toLocaleString('id-ID')}
                     </span>
-                    {!isStoreOpen ? (
-                      <span className="text-[10px] font-bold text-[#ba1a1a] bg-[#ffdad6] px-2 py-1 rounded-lg">
-                        Toko Tutup
-                      </span>
-                    ) : (
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => tambahMenuKeKeranjang(item)}
-                        className="px-3 py-1.5 rounded-xl bg-[#cc4900] text-white text-xs font-bold hover:bg-[#a33900] transition-colors flex items-center gap-1 shadow-2xs"
+                        onClick={() => setMenuDetailTerpilih(item)}
+                        className="px-2.5 py-1.5 rounded-xl bg-[#f0f3ff] hover:bg-[#dee8ff] text-[#cc4900] text-xs font-bold transition-all"
                       >
-                        <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
-                        <span>+ Keranjang</span>
+                        Detail
                       </button>
-                    )}
+                      {!isStoreOpen ? (
+                        <span className="text-[10px] font-bold text-[#ba1a1a] bg-[#ffdad6] px-2 py-1 rounded-lg">
+                          Toko Tutup
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => tambahMenuKeKeranjang(item)}
+                          className="px-3 py-1.5 rounded-xl bg-[#cc4900] text-white text-xs font-bold hover:bg-[#a33900] transition-colors flex items-center gap-1 shadow-2xs active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
+                          <span>+ Keranjang</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -768,7 +850,11 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
             {menuTersaring.map((item) => (
               <div
                 key={item.id}
-                className="rounded-3xl bg-white p-4 border border-[#dee8ff] shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+                className={`rounded-3xl p-4 border shadow-xs transition-all flex flex-col justify-between group ${
+                  item.isAvailable
+                    ? 'bg-white border-[#dee8ff] hover:shadow-md'
+                    : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale'
+                }`}
               >
                 <div>
                   <div className="relative h-44 w-full rounded-2xl overflow-hidden mb-3.5 bg-[#f0f3ff]">
@@ -777,7 +863,14 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                       alt={item.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    {item.discountPercentage && item.discountPercentage > 0 && (
+                    {!item.isAvailable && (
+                      <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
+                        <span className="px-3 py-1 rounded-xl bg-[#ba1a1a] text-white text-xs font-black shadow-sm uppercase tracking-wider">
+                          Stok Habis
+                        </span>
+                      </div>
+                    )}
+                    {item.isAvailable && item.discountPercentage && item.discountPercentage > 0 && (
                       <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-lg bg-[#ba1a1a] text-white text-[10px] font-extrabold uppercase shadow-xs">
                         Diskon {item.discountPercentage}%
                       </span>
@@ -825,20 +918,33 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                     </span>
                   </div>
 
-                  {!isStoreOpen ? (
-                    <span className="px-3 py-1.5 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs font-bold">
-                      Toko Tutup
-                    </span>
-                  ) : (
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => tambahMenuKeKeranjang(item)}
-                      className="px-3.5 py-2 rounded-xl bg-[#a33900] text-white text-xs font-bold hover:bg-[#cc4900] transition-colors flex items-center gap-1.5 shadow-2xs active:scale-95"
+                      onClick={() => setMenuDetailTerpilih(item)}
+                      className="px-2.5 py-1.5 rounded-xl bg-[#f0f3ff] hover:bg-[#dee8ff] text-[#cc4900] text-xs font-bold transition-all"
                     >
-                      <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
-                      <span>+ Keranjang</span>
+                      Detail
                     </button>
-                  )}
+                    {!item.isAvailable ? (
+                      <span className="px-3.5 py-2 rounded-xl bg-[#e0e0e0] text-[#757575] text-xs font-bold">
+                        Stok Habis
+                      </span>
+                    ) : !isStoreOpen ? (
+                      <span className="px-3 py-1.5 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs font-bold">
+                        Toko Tutup
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => tambahMenuKeKeranjang(item)}
+                        className="px-3.5 py-2 rounded-xl bg-[#a33900] text-white text-xs font-bold hover:bg-[#cc4900] transition-colors flex items-center gap-1.5 shadow-2xs active:scale-95"
+                      >
+                        <span className="material-symbols-outlined text-sm">add_shopping_cart</span>
+                        <span>+ Keranjang</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -860,7 +966,7 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Object.values(STORE_PROFILES).map((store) => (
+              {daftarTokoAktif.map((store) => (
                 <div
                   key={store.id}
                   onClick={() => onOpenStoreProfile && onOpenStoreProfile(store.name)}
@@ -871,6 +977,10 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                       src={store.logoUrl}
                       alt={store.name}
                       className="w-12 h-12 rounded-xl object-cover border border-[#dee8ff]"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=300&q=80';
+                      }}
                     />
                     <div className="flex flex-col min-w-0">
                       <span className="text-xs font-bold text-[#111c2d] truncate group-hover:text-[#cc4900] transition-colors">
@@ -894,7 +1004,21 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
           </div>
         </div>
       </main>
-    </div>
+    </>
+  )}
+
+  {/* Boundary: Halaman Detail Menu sesuai Robustness Diagram */}
+  <HalamanDetailMenu
+    isOpen={menuDetailTerpilih !== null}
+    menu={menuDetailTerpilih}
+    onClose={() => setMenuDetailTerpilih(null)}
+    onAddToCart={(menu, qty, notes) => {
+      tambahMenuKeKeranjang(menu, qty, notes);
+      setMenuDetailTerpilih(null);
+    }}
+    isStoreOpen={isStoreOpen}
+  />
+</div>
   );
 };
 

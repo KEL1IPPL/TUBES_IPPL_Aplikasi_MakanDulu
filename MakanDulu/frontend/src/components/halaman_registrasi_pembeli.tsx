@@ -50,6 +50,10 @@ const HalamanRegistrasiPembeli: React.FC<HalamanRegistrasiPembeliProps> = ({
       showToast('Password Terlalu Pendek', 'Kata sandi minimal 8 karakter.', true);
       return;
     }
+    if (!address.trim()) {
+      showToast('Alamat Wajib Diisi', 'Masukkan alamat pengantaran utama Anda.', true);
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -58,7 +62,7 @@ const HalamanRegistrasiPembeli: React.FC<HalamanRegistrasiPembeliProps> = ({
         email: email.trim(),
         password,
         phone: phone.trim(),
-        address: address.trim() || 'Jl. Sudirman No. 42, Jakarta Selatan',
+        address: address.trim(),
       });
       if (!data.token || !data.user) throw new Error(data.message || 'Respons registrasi tidak lengkap.');
       localStorage.setItem('makandulu_token', data.token);

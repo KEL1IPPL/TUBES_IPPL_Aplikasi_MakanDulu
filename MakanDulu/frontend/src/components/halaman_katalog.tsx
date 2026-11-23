@@ -77,7 +77,11 @@ const HalamanKatalog: React.FC<HalamanKatalogProps> = ({
         {filteredMenus.map((item) => (
           <div
             key={item.id}
-            className="group rounded-3xl bg-white border border-[#dee8ff] p-4 flex flex-col justify-between hover:shadow-xl hover:border-[#cc4900]/40 transition-all duration-200"
+            className={`group rounded-3xl p-4 flex flex-col justify-between transition-all duration-200 border ${
+              item.isAvailable
+                ? 'bg-white border-[#dee8ff] hover:shadow-xl hover:border-[#cc4900]/40'
+                : 'bg-[#f4f4f6] border-[#d8d8de] opacity-60 grayscale'
+            }`}
           >
             <div>
               {/* Image & Badges */}

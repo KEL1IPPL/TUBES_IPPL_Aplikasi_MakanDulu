@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { UserProfile } from '../types';
 
 interface IncomingOrder {
   id: string;
@@ -16,10 +17,13 @@ interface IncomingOrder {
 interface PesananPenjualProps {
   showToast: (title: string, message: string, isError?: boolean) => void;
   onNavigateToDashboard?: () => void;
+  userProfile?: UserProfile | null;
 }
 
-export const PesananPenjual: React.FC<PesananPenjualProps> = ({
-  showToast
+const PesananPenjual: React.FC<PesananPenjualProps> = ({
+  showToast,
+  onNavigateToDashboard,
+  userProfile
 }) => {
   const [activeFilter, setActiveFilter] = useState<'semua' | 'menunggu' | 'dimasak' | 'siap' | 'batal'>('semua');
   const [orders, setOrders] = useState<IncomingOrder[]>([
@@ -118,6 +122,25 @@ export const PesananPenjual: React.FC<PesananPenjualProps> = ({
     showToast('Makanan Siap!', 'Notifikasi dikirim ke kurir pengantar untuk segera melakukan serah terima.');
   };
 
+  // Simulation tool to instantly test auto-cancellation after 10 min
+  const simulateAutoCancelTimer = (id: string) => {
+    setOrders((prev) =>
+      prev.map((ord) =>
+        ord.id === id
+          ? {
+              ...ord,
+              remainingSeconds: 0,
+              status: 'auto_batal_10mnt'
+            }
+          : ord
+      )
+    );
+    showToast(
+      'Simulasi Auto-Batal 10 Mnt',
+      'Waktu 10 menit habis tanpa konfirmasi penjual. Sistem otomatis menolak pesanan!',
+      true
+    );
+  };
 
   const filteredOrders = orders.filter((ord) => {
     if (activeFilter === 'menunggu') return ord.status === 'menunggu';
@@ -141,29 +164,33 @@ export const PesananPenjual: React.FC<PesananPenjualProps> = ({
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#111c2d] tracking-tight">
-            Menu Pesanan Resto Bebek Juara
+            Menu Pesanan {userProfile?.storeName || 'Resto'}
           </h1>
           <p className="text-xs sm:text-sm text-[#5a4138] mt-1">
-            Pantau pesanan masuk dan perbarui statusnya hingga siap diantar.
+            Kelola antrean pesanan masuk. <strong>Penjual tidak dapat menolak pesanan secara manual</strong>. Konfirmasi sebelum timer 10 menit habis, atau sistem akan otomatis membatalkan pesanan.
           </p>
         </div>
 
+        {onNavigateToDashboard && (
+          <button
+            type="button"
+            onClick={onNavigateToDashboard}
+            className="px-4 py-2.5 bg-[#825100] hover:bg-[#a36700] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs self-start md:self-auto"
+          >
+            <span className="material-symbols-outlined text-sm">monitoring</span>
+            <span>Dashboard & Kelola Stok</span>
+          </button>
+        )}
       </div>
 
       {/* Rules Notice Banner */}
-      <div className="my-5 flex items-center gap-3 rounded-2xl border border-[#ffb95f] bg-[#ffddb8]/40 px-4 py-3">
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined shrink-0 text-xl leading-none text-[#825100]"
-        >
+      <div className="my-5 p-4 rounded-2xl bg-[#ffddb8]/40 border border-[#ffb95f] flex items-start gap-3">
+        <span className="material-symbols-outlined text-[#825100] text-xl mt-0.5 shrink-0">
           info
         </span>
-
-        <p className="text-xs leading-relaxed text-[#5a4138]">
-          <strong className="text-[#111c2d]">Batas Waktu Konfirmasi:</strong>{' '}
-          Konfirmasi pesanan dalam 10 menit sejak pesanan masuk.
-          Jika batas waktu habis, pesanan otomatis dibatalkan.
-        </p>
+        <div className="text-xs text-[#5a4138] leading-relaxed">
+          <strong className="text-[#111c2d]">Kebijakan Operasional Pesanan:</strong> Penjual tidak memiliki tombol tolak manual. Sistem timer 10 menit berjalan secara otomatis. Jika penjual tidak menekan tombol <strong>"Konfirmasi & Siapkan"</strong> sampai hitung mundur 0:00, sistem secara otomatis menolak pesanan pelanggan demi menjaga kepastian layanan.
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -277,9 +304,18 @@ export const PesananPenjual: React.FC<PesananPenjualProps> = ({
                     <span>Konfirmasi & Siapkan Pesanan</span>
                   </button>
 
-                  <p className="mt-2 h-4 w-full text-center text-[10px] leading-4 text-[#5a4138]">
-                    Timer Konfirmasi Aktif
-                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-[#5a4138]">
+                      Auto-batal jika 10 mnt habis
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => simulateAutoCancelTimer(ord.id)}
+                      className="text-[10px] text-[#ba1a1a] font-bold hover:underline"
+                    >
+                      Uji Simulasi Auto-Batal
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -287,7 +323,7 @@ export const PesananPenjual: React.FC<PesananPenjualProps> = ({
                 <button
                   type="button"
                   onClick={() => handleReadyForCourier(ord.id)}
-                  className="mb-6 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-[#006c49] text-xs font-bold text-white shadow-xs hover:bg-[#005236]"
+                  className="w-full py-2.5 rounded-xl bg-[#006c49] hover:bg-[#005236] text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-sm">moped</span>
                   <span>Makanan Selesai Dimasak (Panggil Kurir)</span>
@@ -314,6 +350,6 @@ export const PesananPenjual: React.FC<PesananPenjualProps> = ({
   );
 };
 
-export const MerchantOrdersView = PesananPenjual;
-export const TampilanPesananPenjual = PesananPenjual;
+export { PesananPenjual };
+export const HalamanPesananPenjual = PesananPenjual;
 export default PesananPenjual;
