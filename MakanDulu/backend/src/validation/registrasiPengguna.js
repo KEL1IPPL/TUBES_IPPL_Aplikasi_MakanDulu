@@ -113,7 +113,7 @@ const validateSellerRegistration = (data) =>
   isValidAlamatPenjual(data.storeAddress) &&
   /^\d{13}$/.test(data.nib) &&
   /^\d{16}$/.test(data.ktp) &&
-  /^\d{21}$/.test(data.npwp);
+  ( /^\d{15}$/.test(data.npwp) || /^\d{21}$/.test(data.npwp));
 
 module.exports = {
   validateBuyerRegistration,

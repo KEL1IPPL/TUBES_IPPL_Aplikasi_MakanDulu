@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MenuItem } from '../types';
+import apiClient, { ApiError } from '../services/apiClient';
 
 interface HalamanFormEditMenuProps {
   menu: MenuItem;
@@ -39,7 +40,7 @@ const HalamanFormEditMenu: React.FC<HalamanFormEditMenuProps> = ({
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       showToast('Nama Menu Kosong', 'Harap isi nama menu makanan.', true);
@@ -65,6 +66,29 @@ const HalamanFormEditMenu: React.FC<HalamanFormEditMenuProps> = ({
       modifier: modifier.trim() || undefined,
       isAvailable
     };
+
+    const numericId = /^menu-(\d+)$/.exec(menu.id);
+    if (numericId) {
+      try {
+        await apiClient.updateMenu(Number(numericId[1]), {
+          namaMenu: updated.name,
+          kategori: updated.category,
+          harga: updated.price,
+          hargaNormal: updated.originalPrice,
+          deskripsi: updated.description,
+          fotoUrl: updated.imageUrl,
+          rasaKarakter: updated.tasteCategory,
+          modifier: updated.modifier,
+          statusAktif: updated.isAvailable,
+        });
+      } catch (error) {
+        const message = error instanceof ApiError
+          ? error.message
+          : 'Menu tidak dapat diperbarui ke backend.';
+        showToast('Gagal Memperbarui', message, true);
+        return;
+      }
+    }
 
     onSaveEdit(updated);
     showToast('Menu Diperbarui', `${updated.name} berhasil diperbarui di katalog.`);

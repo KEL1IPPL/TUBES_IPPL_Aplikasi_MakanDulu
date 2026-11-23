@@ -7,23 +7,37 @@ interface HalamanLoginPenjualProps {
   onNavigateToRegister: () => void;
   onNavigateToForgotPassword: () => void;
   showToast: (title: string, message: string, isError?: boolean) => void;
+  embedded?: boolean;
 }
 
 const HalamanLoginPenjual: React.FC<HalamanLoginPenjualProps> = ({
   onSuccess,
   onNavigateToRegister,
   onNavigateToForgotPassword,
-  showToast
+  showToast,
+  embedded = false,
 }) => {
-  const [email, setEmail] = useState('resto.juara@makan.id');
-  const [password, setPassword] = useState('PasswordAman123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      showToast('Input Kosong', 'Email dan kata sandi resto wajib diisi.', true);
+    if (!email.trim()) {
+      showToast('Email Wajib Diisi', 'Masukkan email bisnis resto.', true);
+      return;
+    }
+    if (!email.includes('@') || !email.includes('.')) {
+      showToast('Format Email Salah', 'Masukkan email bisnis yang valid.', true);
+      return;
+    }
+    if (!password.trim()) {
+      showToast('Password Wajib Diisi', 'Masukkan kata sandi resto.', true);
+      return;
+    }
+    if (password.length < 8) {
+      showToast('Password Terlalu Pendek', 'Kata sandi minimal 8 karakter.', true);
       return;
     }
 
@@ -43,8 +57,8 @@ const HalamanLoginPenjual: React.FC<HalamanLoginPenjualProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-[#dee8ff] shadow-xl">
-      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#f0f3ff]">
+    <div className={embedded ? 'w-full' : 'w-full max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-[#dee8ff] shadow-xl'}>
+      {!embedded && <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#f0f3ff]">
         <div className="w-12 h-12 rounded-2xl bg-[#ffddb8] text-[#825100] flex items-center justify-center font-bold">
           <span className="material-symbols-outlined text-2xl">storefront</span>
         </div>
@@ -52,7 +66,7 @@ const HalamanLoginPenjual: React.FC<HalamanLoginPenjualProps> = ({
           <h2 className="text-xl font-extrabold text-[#111c2d]">Masuk Sebagai Penjual</h2>
           <p className="text-xs text-[#5a4138]">Akses operasional restoran dan antrean pesanan</p>
         </div>
-      </div>
+      </div>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -78,27 +92,24 @@ const HalamanLoginPenjual: React.FC<HalamanLoginPenjualProps> = ({
               Lupa sandi?
             </button>
           </div>
-          <input
-            type={showPassword ? 'text' : 'password'}
-            required
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#825100]"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 pt-1">
-          <input
-            type="checkbox"
-            id="show-pass-login-penjual"
-            checked={showPassword}
-            onChange={(e) => setShowPassword(e.target.checked)}
-            className="rounded border-[#dee8ff] text-[#825100] focus:ring-[#825100]"
-          />
-          <label htmlFor="show-pass-login-penjual" className="text-xs text-[#5a4138] cursor-pointer">
-            Tampilkan kata sandi
-          </label>
+          <div className="relative flex items-center">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              required
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2.5 pr-11 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#825100]"
+            />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a4138] hover:text-[#111c2d] flex items-center justify-center p-0.5 focus:outline-none"
+                aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+              >
+                <span className="material-symbols-outlined text-lg leading-none">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+          </div>
         </div>
 
         <button

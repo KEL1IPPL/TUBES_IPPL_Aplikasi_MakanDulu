@@ -4,6 +4,7 @@ import HalamanFormMenu from './halaman_form_menu';
 import HalamanFormEditMenu from './halaman_form_edit_menu';
 import PopupKonfirmasiHapus from './pop_up_konfirmasi_hapus';
 import PopUpKonfirmasiNonaktif from './pop_up_konfirmasi_nonaktif';
+import apiClient, { ApiError } from '../services/apiClient';
 
 interface HalamanKelolaMenuProps {
   menuList: MenuItem[];
@@ -24,40 +25,80 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
   onToggleDiscount,
   showToast
 }) => {
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
+  const [showAddModal, setShowAddModal]       = useState(false);
+  const [editingItem, setEditingItem]         = useState<MenuItem | null>(null);
+  const [itemToDelete, setItemToDelete]       = useState<MenuItem | null>(null);
   const [itemToDeactivate, setItemToDeactivate] = useState<MenuItem | null>(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch]                   = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  /** Ambil idMenu numerik dari id string "menu-123" atau "menu-local-..." */
+  const getIdMenu = (item: MenuItem): number | null => {
+    const match = item.id.match(/^menu-(\d+)$/);
+    return match ? Number(match[1]) : null;
+  };
 
   const filtered = menuList.filter((m) => {
     if (search.trim()) {
       const q = search.toLowerCase();
-      if (!m.name.toLowerCase().includes(q) && !m.description.toLowerCase().includes(q)) {
-        return false;
-      }
+      if (!m.name.toLowerCase().includes(q) && !m.description.toLowerCase().includes(q)) return false;
     }
-    if (selectedCategory !== 'all') {
-      return m.category === selectedCategory;
-    }
+    if (selectedCategory !== 'all') return m.category === selectedCategory;
     return true;
   });
 
-  const handleConfirmDelete = () => {
-    if (itemToDelete) {
-      onDeleteMenu(itemToDelete.id);
-      showToast('Menu Dihapus', `${itemToDelete.name} telah dihapus dari katalog.`);
-      setItemToDelete(null);
+  /**
+   * handleConfirmDelete — Langkah hapus menu:
+   * Coba hapus via API (MenuController.hapusMenu), fallback ke state lokal.
+   */
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    const idMenu = getIdMenu(itemToDelete);
+    if (idMenu) {
+      try {
+        await apiClient.hapusMenu(idMenu);
+      } catch (err) {
+        // Jika backend tidak bisa (mis. offline), tetap hapus dari state lokal
+        if (err instanceof ApiError && err.status !== 404) {
+          showToast('Gagal Menghapus', 'Terjadi kesalahan pada server.', true);
+          setItemToDelete(null);
+          return;
+        }
+      }
     }
+    onDeleteMenu(itemToDelete.id);
+    showToast('Menu Dihapus', `${itemToDelete.name} telah dihapus dari katalog.`);
+    setItemToDelete(null);
   };
 
-  const handleConfirmDeactivate = () => {
-    if (itemToDeactivate) {
-      onToggleStock(itemToDeactivate.id);
-      showToast('Status Diubah', `Ketersediaan ${itemToDeactivate.name} berhasil diubah.`);
-      setItemToDeactivate(null);
+  /**
+   * handleConfirmDeactivate — Toggle stok aktif/habis via API.
+   */
+  const handleConfirmDeactivate = async () => {
+    if (!itemToDeactivate) return;
+    const idMenu = getIdMenu(itemToDeactivate);
+    if (idMenu) {
+      try {
+        await apiClient.toggleStokMenu(idMenu);
+      } catch {
+        // Fallback ke state lokal
+      }
     }
+    onToggleStock(itemToDeactivate.id);
+    showToast('Status Diubah', `Ketersediaan ${itemToDeactivate.name} berhasil diubah.`);
+    setItemToDeactivate(null);
+  };
+
+  /**
+   * handleToggleStokLangsung — Aktifkan stok langsung (tanpa popup konfirmasi).
+   */
+  const handleToggleStokLangsung = async (item: MenuItem) => {
+    const idMenu = getIdMenu(item);
+    if (idMenu) {
+      try { await apiClient.toggleStokMenu(idMenu); } catch { /* fallback */ }
+    }
+    onToggleStock(item.id);
+    showToast('Stok Diaktifkan', `${item.name} kini tersedia.`);
   };
 
   return (
@@ -190,8 +231,7 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
                       if (item.isAvailable) {
                         setItemToDeactivate(item);
                       } else {
-                        onToggleStock(item.id);
-                        showToast('Stok Diaktifkan', `${item.name} kini tersedia.`);
+                        handleToggleStokLangsung(item);
                       }
                     }}
                     className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
@@ -250,7 +290,8 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
             onSaveMenu={(newM) => {
               onAddMenu(newM);
               setShowAddModal(false);
-              showToast('Menu Ditambahkan!', `${newM.name} telah masuk ke katalog.`);
+              // Langkah 9: tampilkan pesan "Menu Berhasil Ditambahkan"
+              showToast('Menu Berhasil Ditambahkan! 🎉', `${newM.name} telah masuk ke katalog dan siap dipesan pembeli.`);
             }}
             onCancel={() => setShowAddModal(false)}
             showToast={showToast}

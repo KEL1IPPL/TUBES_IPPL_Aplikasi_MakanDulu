@@ -9,12 +9,14 @@ interface HalamanResetPasswordProps {
   role: 'Pembeli' | 'Penjual';
   onBackToLogin: () => void;
   showToast: (title: string, message: string, isError?: boolean) => void;
+  embedded?: boolean;
 }
 
 const HalamanResetPassword: React.FC<HalamanResetPasswordProps> = ({
   role,
   onBackToLogin,
-  showToast
+  showToast,
+  embedded = false,
 }) => {
   const [step, setStep] = useState<'request' | 'otp' | 'new_password' | 'done'>('request');
   const [email, setEmail] = useState('');
@@ -24,6 +26,8 @@ const HalamanResetPassword: React.FC<HalamanResetPasswordProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -35,8 +39,12 @@ const HalamanResetPassword: React.FC<HalamanResetPasswordProps> = ({
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !email.includes('@')) {
-      showToast('Email Tidak Valid', 'Masukkan alamat email terdaftar.', true);
+    if (!email.trim()) {
+      showToast('Email Wajib Diisi', 'Masukkan alamat email terdaftar.', true);
+      return;
+    }
+    if (!email.includes('@') || !email.includes('.')) {
+      showToast('Format Email Salah', 'Masukkan alamat email yang valid.', true);
       return;
     }
     setIsLoading(true);
@@ -78,8 +86,12 @@ const HalamanResetPassword: React.FC<HalamanResetPasswordProps> = ({
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPassword.trim() || newPassword.length < 8) {
-      showToast('Sandi Terlalu Pendek', 'Kata sandi baru minimal 8 karakter.', true);
+    if (!newPassword.trim()) {
+      showToast('Password Wajib Diisi', 'Masukkan kata sandi baru.', true);
+      return;
+    }
+    if (newPassword.length < 8) {
+      showToast('Password Terlalu Pendek', 'Kata sandi baru minimal 8 karakter.', true);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -104,8 +116,8 @@ const HalamanResetPassword: React.FC<HalamanResetPasswordProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-[#dee8ff] shadow-xl">
-      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#f0f3ff]">
+    <div className={embedded ? 'w-full' : 'w-full max-w-md mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-[#dee8ff] shadow-xl'}>
+      {!embedded && <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#f0f3ff]">
         <div className="w-12 h-12 rounded-2xl bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center font-bold">
           <span className="material-symbols-outlined text-2xl">lock_reset</span>
         </div>
@@ -113,7 +125,7 @@ const HalamanResetPassword: React.FC<HalamanResetPasswordProps> = ({
           <h2 className="text-xl font-extrabold text-[#111c2d]">Pemulihan Kata Sandi</h2>
           <p className="text-xs text-[#5a4138]">Reset sandi akun melalui verifikasi kode OTP</p>
         </div>
-      </div>
+      </div>}
 
       {step === 'request' && (
         <form onSubmit={handleRequestOtp} className="space-y-4">
@@ -126,7 +138,7 @@ const HalamanResetPassword: React.FC<HalamanResetPasswordProps> = ({
             <input
               type="email"
               required
-              placeholder="siti.rahma@domain.com"
+              placeholder="nama@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
@@ -181,28 +193,38 @@ const HalamanResetPassword: React.FC<HalamanResetPasswordProps> = ({
 
       {step === 'new_password' && (
         <form onSubmit={handleResetPassword} className="space-y-4">
-          <div>
+          <div className="relative">
             <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Kata Sandi Baru</label>
             <input
-              type="password"
+              type={showNewPassword ? 'text' : 'password'}
               required
               placeholder="••••••••"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
+              className="w-full px-4 py-2.5 pr-11 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
             />
+            <button type="button" onClick={() => setShowNewPassword((value) => !value)}
+              className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-[#5a4138] hover:text-[#111c2d] flex items-center justify-center p-0.5 focus:outline-none"
+              aria-label={showNewPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}>
+              <span className="material-symbols-outlined text-lg leading-none">{showNewPassword ? 'visibility_off' : 'visibility'}</span>
+            </button>
           </div>
 
-          <div>
+          <div className="relative">
             <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Konfirmasi Kata Sandi Baru</label>
             <input
-              type="password"
+              type={showConfirmPassword ? 'text' : 'password'}
               required
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
+              className="w-full px-4 py-2.5 pr-11 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
             />
+            <button type="button" onClick={() => setShowConfirmPassword((value) => !value)}
+              className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-[#5a4138] hover:text-[#111c2d] flex items-center justify-center p-0.5 focus:outline-none"
+              aria-label={showConfirmPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}>
+              <span className="material-symbols-outlined text-lg leading-none">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
+            </button>
           </div>
 
           <button

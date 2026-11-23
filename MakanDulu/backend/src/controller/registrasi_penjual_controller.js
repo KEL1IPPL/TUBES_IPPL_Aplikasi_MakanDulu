@@ -60,7 +60,7 @@ const registerSeller = async (req, res) => {
   if (!validateSellerRegistration(req.body)) {
     return res.status(400).json({
       success: false,
-      message: 'Data usaha wajib diisi. NIB harus 13 digit, KTP 16 digit, NPWP 21 digit, dan nomor handphone harus valid.',
+      message: 'Data usaha wajib diisi. NIB harus 13 digit, NIK/KTP 16 digit, NPWP 15 atau 21 digit, dan nomor handphone harus valid.',
     });
   }
 

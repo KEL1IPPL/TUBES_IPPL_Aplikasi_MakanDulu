@@ -1,9 +1,10 @@
 const express = require('express');
 const cors = require('cors');
-const menuRoutes = require('./routes/pencarianMenu');
 require('dotenv').config();
-const authRoutes = require('./routes/autentikasiperan');
+const menuRoutes       = require('./routes/pencarianMenu');
+const authRoutes       = require('./routes/autentikasiperan');
 const preferenceRoutes = require('./routes/halaman_preferensi_makanan');
+const ocrRoutes        = require('./routes/pembaca_foto');       // ← OCR dokumen legalitas
 const { verifikasiMailer } = require('./services/mailtrap');
 
 if (!process.env.JWT_SECRET) {
@@ -29,9 +30,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use('/api/auth', authRoutes);
-app.use('/api/menu', menuRoutes);
+app.use('/api/auth',                      authRoutes);
+app.use('/api/menu',                      menuRoutes);
 app.use('/api/halaman-preferensi-makanan', preferenceRoutes);
+
+// Rute OCR dokumen legalitas penjual (KTP, NPWP, NIB)
+app.use('/api/dokumen',    ocrRoutes);
+app.use('/api/v1/dokumen', ocrRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Endpoint ${req.method} ${req.originalUrl} tidak ditemukan.`,
+  });
+});
 
 app.listen(PORT, async () => {
   console.log(`Backend berjalan di http://localhost:${PORT}`);

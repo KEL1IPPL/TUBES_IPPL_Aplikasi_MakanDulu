@@ -25,9 +25,7 @@ import {
 } from './utils/penyimpananLokal';
 import { NavigasiAtas } from './components/NavigasiAtas';
 import { HalamanPilihPeran } from './components/halaman_utama';
-import HalamanLoginPenjualPembeli from './components/halaman_login_penjual_pembeli';
-import HalamanRegistrasiPenjualPembeli from './components/halaman_registrasi_penjual_pembeli';
-import HalamanResetPassword from './components/halaman_reset_password';
+import AlurAutentikasiPeran from './views/AlurAutentikasiPeran';
 import { ModalAlamat } from './components/ModalAlamat';
 import { ModalPreferensi } from './components/ModalPreferensi';
 import { ModalProfil } from './components/ModalProfil';
@@ -39,6 +37,7 @@ import { PesananPenjual } from './views/PesananPenjual';
 import { KelolaStokPenjual } from './views/KelolaStokPenjual';
 import { ProfilToko } from './views/ProfilToko';
 import { usePreferensiMakanan } from './hooks/usePreferensiMakanan';
+import { getMenus, toggleMenuStatus, MenuApiItem } from './services/apiClient';
 
 export default function AplikasiUtama() {
   const { simpan: simpanPreferensi } = usePreferensiMakanan();
@@ -71,7 +70,6 @@ export default function AplikasiUtama() {
   // Tab aktif ruang kerja
   const [tabAktifPembeli, setTabAktifPembeli] = useState<PembeliTab>('katalog');
   const [tabAktifPenjual, setTabAktifPenjual] = useState<PenjualTab>('pesanan');
-  const [modeAutentikasi, setModeAutentikasi] = useState<'login' | 'register' | 'reset'>('login');
 
   // Status modal preferensi & profil
   const [modalPreferensiTerbuka, setModalPreferensiTerbuka] = useState(false);
@@ -119,6 +117,37 @@ useEffect(() => {
       console.error('Gagal terhubung ke backend:', error);
     });
 }, []);
+
+  useEffect(() => {
+    if (peranPengguna !== 'Penjual' || tahapAplikasi !== 'app') return;
+
+    getMenus()
+      .then((response) => {
+        const menuFromApi = response.data.map((item: MenuApiItem): MenuItem => ({
+          id: item.id,
+          name: item.name,
+          restaurant: item.restaurant || 'Resto Bebek Juara',
+          distance: item.distance || '—',
+          price: item.price,
+          originalPrice: item.originalPrice,
+          discountPercentage: item.discountPercentage,
+          rating: item.rating,
+          reviewCount: item.reviewCount,
+          tag: item.tag,
+          tasteCategory: item.tasteCategory,
+          category: item.category,
+          description: item.description,
+          imageUrl: item.imageUrl,
+          isAvailable: item.isAvailable,
+          modifier: item.modifier,
+          salesCount: item.salesCount,
+        }));
+        setDaftarMenu(menuFromApi);
+      })
+      .catch((error) => {
+        console.error('Gagal memuat menu dari backend:', error);
+      });
+  }, [peranPengguna, tahapAplikasi]);
 
   useEffect(() => {
     simpanKePenyimpanan(KUNCI_STORAGE.TAHAP_APLIKASI, tahapAplikasi);
@@ -184,27 +213,34 @@ useEffect(() => {
   }, [pemberitahuanToast.tampil]);
 
   // Handler beralih stok menu bagi Penjual
-  const tanganiAlihkanStok = (idMenu: string) => {
-    setDaftarMenu((sebelumnya) => {
-      const menuTarget = sebelumnya.find((x) => x.id === idMenu);
-      const statusBerikutnya = menuTarget ? !menuTarget.isAvailable : false;
+  const tanganiAlihkanStok = async (idMenu: string) => {
+    const menuTarget = daftarMenu.find((item) => item.id === idMenu);
+    const numericId = /^menu-(\d+)$/.exec(idMenu);
 
-      const hasil = sebelumnya.map((item) => {
-        if (item.id === idMenu) {
-          return { ...item, isAvailable: statusBerikutnya };
-        }
-        return item;
-      });
-
-      if (menuTarget) {
-        tampilkanToast(
-          statusBerikutnya ? 'Stok Diaktifkan' : 'Stok Ditandai Habis',
-          `${menuTarget.name} kini ${statusBerikutnya ? 'Tersedia' : 'Habis'} di katalog pembeli.`
-        );
+    if (numericId) {
+      try {
+        await toggleMenuStatus(Number(numericId[1]));
+      } catch (error) {
+        console.error('Gagal mengubah status stok menu:', error);
+        tampilkanToast('Gagal Mengubah Stok', 'Perubahan tidak tersimpan ke backend.', true);
+        return;
       }
+    }
 
-      return hasil;
+    setDaftarMenu((sebelumnya) => {
+      const target = sebelumnya.find((item) => item.id === idMenu);
+      const statusBerikutnya = target ? !target.isAvailable : false;
+      return sebelumnya.map((item) =>
+        item.id === idMenu ? { ...item, isAvailable: statusBerikutnya } : item
+      );
     });
+
+    if (menuTarget) {
+      tampilkanToast(
+        menuTarget.isAvailable ? 'Stok Ditandai Habis' : 'Stok Diaktifkan',
+        `${menuTarget.name} kini ${menuTarget.isAvailable ? 'Habis' : 'Tersedia'} di katalog pembeli.`
+      );
+    }
   };
 
   // Handler alihkan diskon promosi bagi Penjual
@@ -367,12 +403,10 @@ useEffect(() => {
           onSelectRole={(role) => {
             setPeranPengguna(role);
             setTahapAplikasi('auth');
-            setModeAutentikasi('login');
           }}
           onOpenPortalModal={() => {
             setPeranPengguna('Pembeli');
             setTahapAplikasi('auth');
-            setModeAutentikasi('login');
           }}
         />
       </>
@@ -380,56 +414,29 @@ useEffect(() => {
   }
 
   // =========================================================================
-  // 2. TAHAP KEDUA: Halaman Pilihan Daftar atau Login sesuai Role
+  // 2. TAHAP KEDUA: Halaman Login / Daftar terintegrasi (tab switcher)
   // =========================================================================
   if (tahapAplikasi === 'auth' && peranPengguna) {
     return (
-      <div className="min-h-screen bg-[#f9f9ff] py-6">
+      <div className="min-h-screen bg-[#f9f9ff]">
         {elemenToast}
-        <div className="max-w-2xl mx-auto px-4 mb-4">
-          <button
-            type="button"
-            onClick={() => {
-              setPeranPengguna(null);
-              setTahapAplikasi('select_role');
-            }}
-            className="px-4 py-2 rounded-xl bg-white border border-[#dee8ff] text-xs font-bold"
-          >
-            ← Kembali ke Pemilihan Peran
-          </button>
-        </div>
-        {modeAutentikasi === 'login' && (
-          <HalamanLoginPenjualPembeli
-            initialRole={peranPengguna}
-            onSuccess={(role, profil) => {
-              setPeranPengguna(role);
-              setProfilPengguna((prev) => ({ ...prev, ...profil, balance: prev?.balance ?? 150000 }));
-              setTahapAplikasi('app');
-            }}
-            onNavigateToRegister={() => setModeAutentikasi('register')}
-            onNavigateToForgotPassword={() => setModeAutentikasi('reset')}
-            showToast={tampilkanToast}
-          />
-        )}
-        {modeAutentikasi === 'register' && (
-          <HalamanRegistrasiPenjualPembeli
-            initialRole={peranPengguna}
-            onSuccess={(role, profil) => {
-              setPeranPengguna(role);
-              setProfilPengguna((prev) => ({ ...prev, ...profil, balance: prev?.balance ?? 150000 }));
-              setTahapAplikasi('app');
-            }}
-            onNavigateToLogin={() => setModeAutentikasi('login')}
-            showToast={tampilkanToast}
-          />
-        )}
-        {modeAutentikasi === 'reset' && (
-          <HalamanResetPassword
-            role={peranPengguna}
-            onBackToLogin={() => setModeAutentikasi('login')}
-            showToast={tampilkanToast}
-          />
-        )}
+        <AlurAutentikasiPeran
+          userRole={peranPengguna}
+          onSuccess={(profil) => {
+            setProfilPengguna((prev) => ({
+              ...prev,
+              ...profil,
+              role: peranPengguna,
+              balance: prev?.balance ?? 150000,
+            }));
+            setTahapAplikasi('app');
+          }}
+          onBackToRoleSelect={() => {
+            setPeranPengguna(null);
+            setTahapAplikasi('select_role');
+          }}
+          showToast={tampilkanToast}
+        />
       </div>
     );
   }
@@ -454,7 +461,6 @@ useEffect(() => {
         hasActiveOrder={pesananSaatIni !== null}
         onLogout={tanganiKeluarKeLanding}
         onOpenPortalModal={() => {
-          setModeAutentikasi('login');
           setTahapAplikasi('auth');
         }}
         userProfile={profilPengguna}

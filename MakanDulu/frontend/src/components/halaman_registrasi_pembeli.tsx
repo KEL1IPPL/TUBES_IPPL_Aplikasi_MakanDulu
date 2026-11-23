@@ -6,12 +6,14 @@ interface HalamanRegistrasiPembeliProps {
   onSuccess: (profile: UserProfile) => void;
   onNavigateToLogin: () => void;
   showToast: (title: string, message: string, isError?: boolean) => void;
+  embedded?: boolean;
 }
 
 const HalamanRegistrasiPembeli: React.FC<HalamanRegistrasiPembeliProps> = ({
   onSuccess,
   onNavigateToLogin,
-  showToast
+  showToast,
+  embedded = false,
 }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -24,16 +26,28 @@ const HalamanRegistrasiPembeli: React.FC<HalamanRegistrasiPembeliProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !phone.trim() || !password.trim()) {
-      showToast('Kolom Belum Lengkap', 'Semua kolom wajib diisi.', true);
+    if (!name.trim()) {
+      showToast('Nama Wajib Diisi', 'Masukkan nama lengkap Anda.', true);
+      return;
+    }
+    if (!email.trim()) {
+      showToast('Email Wajib Diisi', 'Masukkan alamat email Anda.', true);
       return;
     }
     if (!email.includes('@') || !email.includes('.')) {
       showToast('Format Email Salah', 'Masukkan alamat email yang valid.', true);
       return;
     }
-    if (password !== confirmPassword) {
-      showToast('Sandi Tidak Cocok', 'Konfirmasi kata sandi tidak sama.', true);
+    if (!phone.trim()) {
+      showToast('Nomor HP Wajib Diisi', 'Masukkan nomor WhatsApp atau HP Anda.', true);
+      return;
+    }
+    if (!password.trim()) {
+      showToast('Password Wajib Diisi', 'Masukkan kata sandi akun Anda.', true);
+      return;
+    }
+    if (password.length < 8) {
+      showToast('Password Terlalu Pendek', 'Kata sandi minimal 8 karakter.', true);
       return;
     }
 
@@ -59,8 +73,8 @@ const HalamanRegistrasiPembeli: React.FC<HalamanRegistrasiPembeliProps> = ({
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-[#dee8ff] shadow-xl">
-      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#f0f3ff]">
+    <div className={embedded ? 'w-full' : 'w-full max-w-xl mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-[#dee8ff] shadow-xl'}>
+      {!embedded && <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#f0f3ff]">
         <div className="w-12 h-12 rounded-2xl bg-[#ffdbce] text-[#a33900] flex items-center justify-center font-bold">
           <span className="material-symbols-outlined text-2xl">person_add</span>
         </div>
@@ -68,7 +82,7 @@ const HalamanRegistrasiPembeli: React.FC<HalamanRegistrasiPembeliProps> = ({
           <h2 className="text-xl font-extrabold text-[#111c2d]">Registrasi Pembeli</h2>
           <p className="text-xs text-[#5a4138]">Buat akun baru untuk mulai memesan makanan favorit Anda</p>
         </div>
-      </div>
+      </div>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -119,42 +133,26 @@ const HalamanRegistrasiPembeli: React.FC<HalamanRegistrasiPembeliProps> = ({
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Kata Sandi</label>
+        <div>
+          <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Kata Sandi *</label>
+          <div className="relative flex items-center">
             <input
               type={showPassword ? 'text' : 'password'}
               required
-              placeholder="••••••••"
+              placeholder="Minimal 8 karakter"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
+              className="w-full px-4 py-2.5 pr-11 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a4138] hover:text-[#111c2d] flex items-center justify-center p-0.5 focus:outline-none"
+              aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+            >
+              <span className="material-symbols-outlined text-lg leading-none">{showPassword ? 'visibility_off' : 'visibility'}</span>
+            </button>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Ulangi Kata Sandi</label>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              required
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#cc4900]"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 pt-1">
-          <input
-            type="checkbox"
-            id="show-pass-pembeli"
-            checked={showPassword}
-            onChange={(e) => setShowPassword(e.target.checked)}
-            className="rounded border-[#dee8ff] text-[#cc4900] focus:ring-[#cc4900]"
-          />
-          <label htmlFor="show-pass-pembeli" className="text-xs text-[#5a4138] cursor-pointer">
-            Tampilkan kata sandi
-          </label>
         </div>
 
         <button

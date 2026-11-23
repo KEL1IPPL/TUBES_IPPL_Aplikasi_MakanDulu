@@ -10,14 +10,6 @@ export const HalamanPilihPeran: React.FC<HalamanUtamaProps> = ({ onSelectRole })
   return (
     <div className="min-h-screen bg-[#f9f9ff] flex flex-col justify-between">
       {/* Top Bar Accent */}
-      <div className="bg-[#cc4900] text-[#fffbff] py-1.5 px-4 text-center">
-        <div className="flex items-center justify-center gap-2">
-          <span className="material-symbols-outlined text-sm leading-none">bolt</span>
-          <span className="text-[11px] font-bold tracking-wider uppercase">
-            MakanDulu Ecosystem • Silakan Tentukan Peran Anda Terlebih Dahulu
-          </span>
-        </div>
-      </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12">
@@ -60,7 +52,6 @@ export const HalamanPilihPeran: React.FC<HalamanUtamaProps> = ({ onSelectRole })
                 </div>
 
                 <div className="mt-6">
-                  <span className="text-[11px] font-mono text-[#5a4138]">ID: ROLE_CUSTOMER</span>
                   <h3 className="text-xl sm:text-2xl font-extrabold text-[#111c2d] mt-1 group-hover:text-[#a33900] transition-colors">
                     Masuk Sebagai Pembeli
                   </h3>
@@ -113,7 +104,6 @@ export const HalamanPilihPeran: React.FC<HalamanUtamaProps> = ({ onSelectRole })
                 </div>
 
                 <div className="mt-6">
-                  <span className="text-[11px] font-mono text-[#5a4138]">ID: ROLE_MERCHANT</span>
                   <h3 className="text-xl sm:text-2xl font-extrabold text-[#111c2d] mt-1 group-hover:text-[#825100] transition-colors">
                     Masuk Sebagai Penjual
                   </h3>
