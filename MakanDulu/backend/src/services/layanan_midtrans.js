@@ -5,8 +5,7 @@ require('dotenv').config();
 
 const serverKey = (
   process.env.MIDTRANS_SERVER_KEY ||
-  process.env.api_key_midtrans ||
-  'SB-Mid-server-ehtsCumG1uyZGsaXTYsyxoyP'
+  process.env.api_key_midtrans
 ).trim();
 
 const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
