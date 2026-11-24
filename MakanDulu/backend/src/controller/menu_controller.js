@@ -8,7 +8,7 @@ const RASA_VALID     = ['pedas', 'gurih', 'manis', 'asam', 'asin'];
 const validasiInputMenu = (body) => {
   const errors = [];
 
-  const { namaMenu, kategori, harga, hargaNormal, deskripsi, fotoUrl, rasaKarakter } = body;
+  const { namaMenu, kategori, harga, hargaNormal, deskripsi, fotoUrl, rasaKarakter, stok } = body;
 
   if (!namaMenu || typeof namaMenu !== 'string' || !namaMenu.trim()) {
     errors.push('Nama menu wajib diisi.');
@@ -31,6 +31,13 @@ const validasiInputMenu = (body) => {
     const hargaNormalNum = Number(hargaNormal);
     if (isNaN(hargaNormalNum) || hargaNormalNum <= hargaNum) {
       errors.push('Harga normal (coret) harus lebih besar dari harga jual.');
+    }
+  }
+
+  if (stok !== undefined && stok !== '' && stok !== null) {
+    const stokNum = Number(stok);
+    if (isNaN(stokNum) || stokNum < 0) {
+      errors.push('Jumlah stok menu harus berupa angka minimal 0.');
     }
   }
 
@@ -94,6 +101,7 @@ const tambahMenu = async (req, res) => {
     fotoUrl,
     rasaKarakter,
     modifier,
+    stok,
     statusAktif,
   } = req.body;
 
@@ -103,15 +111,17 @@ const tambahMenu = async (req, res) => {
     ? Math.round(((hargaNormalNum - hargaNum) / hargaNormalNum) * 100)
     : null;
   const rasaStr        = Array.isArray(rasaKarakter) ? rasaKarakter.join(',') : '';
-  const aktif          = statusAktif === false ? 0 : 1; // default aktif
+  const stokNum        = (stok !== undefined && stok !== '' && stok !== null) ? Math.max(0, parseInt(stok, 10)) : 10;
+  // Jika stok 0, otomatis statusAktif = 0 (stok habis)
+  const aktif          = (statusAktif === false || stokNum === 0) ? 0 : 1;
 
   try {
 //nambah menu kedatabase
     const [result] = await db.execute(
       `INSERT INTO Menu
          (idPenjual, namaMenu, kategori, harga, hargaNormal, diskonPersen,
-          deskripsi, foto, fotoUrl, rasaKarakter, modifier, statusAktif)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          deskripsi, foto, fotoUrl, rasaKarakter, modifier, stok, statusAktif)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         idPenjual,
         namaMenu.trim(),
@@ -124,6 +134,7 @@ const tambahMenu = async (req, res) => {
         (fotoUrl   || '').trim() || null,
         rasaStr || null,
         (modifier  || '').trim() || null,
+        stokNum,
         aktif,
       ]
     );
@@ -133,7 +144,7 @@ const tambahMenu = async (req, res) => {
 //ngambil menu didatabase
     const [rows] = await db.execute(
       `SELECT idMenu, idPenjual, namaMenu, kategori, harga, hargaNormal,
-              diskonPersen, deskripsi, fotoUrl, rasaKarakter, modifier, statusAktif,
+              diskonPersen, deskripsi, fotoUrl, rasaKarakter, modifier, stok, statusAktif,
               createdAt
        FROM Menu WHERE idMenu = ?`,
       [idMenuBaru]
@@ -157,7 +168,8 @@ const tambahMenu = async (req, res) => {
         imageUrl:        menuBaru.fotoUrl   || '',
         tasteCategory:   menuBaru.rasaKarakter ? menuBaru.rasaKarakter.split(',') : [],
         modifier:        menuBaru.modifier  || undefined,
-        isAvailable:     Boolean(menuBaru.statusAktif),
+        stok:            Number(menuBaru.stok ?? stokNum),
+        isAvailable:     Boolean(menuBaru.statusAktif) && Number(menuBaru.stok ?? stokNum) > 0,
         restaurant:      '',       // diisi dari profil toko di frontend
         distance:        '—',
         rating:          0,
@@ -189,33 +201,37 @@ const getMenuPenjual = async (req, res) => {
   try {
     const [rows] = await db.execute(
       `SELECT idMenu, namaMenu, kategori, harga, hargaNormal, diskonPersen,
-              deskripsi, COALESCE(fotoUrl, foto) AS fotoUrl, rasaKarakter, modifier, statusAktif, createdAt
+              deskripsi, COALESCE(fotoUrl, foto) AS fotoUrl, rasaKarakter, modifier, stok, statusAktif, createdAt
        FROM Menu
        WHERE idPenjual = ?
        ORDER BY createdAt DESC`,
       [idPenjual]
     );
 
-    const menuList = rows.map((m) => ({
-      id:                `menu-${m.idMenu}`,
-      idMenu:            m.idMenu,
-      name:              m.namaMenu,
-      category:          m.kategori,
-      price:             Number(m.harga),
-      originalPrice:     m.hargaNormal ? Number(m.hargaNormal) : undefined,
-      discountPercentage: m.diskonPersen ?? undefined,
-      description:       m.deskripsi || '',
-      imageUrl:          m.fotoUrl   || '',
-      tasteCategory:     m.rasaKarakter ? m.rasaKarakter.split(',') : [],
-      modifier:          m.modifier  || undefined,
-      isAvailable:       Boolean(m.statusAktif),
-      restaurant:        '',
-      distance:          '—',
-      rating:            0,
-      reviewCount:       '0 ulasan',
-      tag:               'Menu Aktif',
-      salesCount:        '0 porsi',
-    }));
+    const menuList = rows.map((m) => {
+      const stokVal = Number(m.stok !== undefined && m.stok !== null ? m.stok : 10);
+      return {
+        id:                `menu-${m.idMenu}`,
+        idMenu:            m.idMenu,
+        name:              m.namaMenu,
+        category:          m.kategori,
+        price:             Number(m.harga),
+        originalPrice:     m.hargaNormal ? Number(m.hargaNormal) : undefined,
+        discountPercentage: m.diskonPersen ?? undefined,
+        description:       m.deskripsi || '',
+        imageUrl:          m.fotoUrl   || '',
+        tasteCategory:     m.rasaKarakter ? m.rasaKarakter.split(',') : [],
+        modifier:          m.modifier  || undefined,
+        stok:              stokVal,
+        isAvailable:       Boolean(m.statusAktif) && stokVal > 0,
+        restaurant:        '',
+        distance:          '—',
+        rating:            0,
+        reviewCount:       '0 ulasan',
+        tag:               stokVal === 0 ? 'Stok Habis' : 'Menu Aktif',
+        salesCount:        '0 porsi',
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -253,31 +269,43 @@ const updateMenu = async (req, res) => {
     return res.status(400).json({ success: false, message: 'Validasi gagal.', errors });
   }
 
-  const { namaMenu, kategori, harga, hargaNormal, deskripsi, fotoUrl, rasaKarakter, modifier, statusAktif } = req.body;
+  const { namaMenu, kategori, harga, hargaNormal, deskripsi, fotoUrl, rasaKarakter, modifier, stok, statusAktif } = req.body;
   const hargaNum       = Number(harga);
   const hargaNormalNum = hargaNormal ? Number(hargaNormal) : null;
   const diskonPersen   = hargaNormalNum ? Math.round(((hargaNormalNum - hargaNum) / hargaNormalNum) * 100) : null;
   const rasaStr        = Array.isArray(rasaKarakter) ? rasaKarakter.join(',') : '';
-  const aktif          = statusAktif === false ? 0 : 1;
+  const stokNum        = (stok !== undefined && stok !== '' && stok !== null) ? Math.max(0, parseInt(stok, 10)) : 10;
+  const aktif          = (statusAktif === false || stokNum === 0) ? 0 : 1;
 
   try {
     await db.execute(
       `UPDATE Menu SET
          namaMenu=?, kategori=?, harga=?, hargaNormal=?, diskonPersen=?,
-         deskripsi=?, foto=?, fotoUrl=?, rasaKarakter=?, modifier=?, statusAktif=?
+         deskripsi=?, foto=?, fotoUrl=?, rasaKarakter=?, modifier=?, stok=?, statusAktif=?
        WHERE idMenu=? AND idPenjual=?`,
       [namaMenu.trim(), kategori, hargaNum, hargaNormalNum, diskonPersen,
        (deskripsi||'').trim()||null, (fotoUrl||'').trim()||null, (fotoUrl||'').trim()||null,
-       rasaStr||null, (modifier||'').trim()||null, aktif, idMenu, idPenjual]
+       rasaStr||null, (modifier||'').trim()||null, stokNum, aktif, idMenu, idPenjual]
     );
-    return res.status(200).json({ success: true, message: `Menu "${namaMenu.trim()}" berhasil diperbarui.` });
+    return res.status(200).json({
+      success: true,
+      message: `Menu "${namaMenu.trim()}" berhasil diperbarui.`,
+      data: {
+        id: `menu-${idMenu}`,
+        idMenu: Number(idMenu),
+        name: namaMenu.trim(),
+        price: hargaNum,
+        stok: stokNum,
+        isAvailable: Boolean(aktif && stokNum > 0),
+      }
+    });
   } catch (error) {
     console.error('[MenuController.updateMenu] Error:', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat memperbarui menu.' });
   }
 };
 
-//status menu
+//status & stok menu
 const toggleStatusMenu = async (req, res) => {
   const idPenjual = req.user?.id;
   if (!idPenjual || req.user?.role !== 'Penjual') {
@@ -285,11 +313,11 @@ const toggleStatusMenu = async (req, res) => {
   }
 
   const { idMenu } = req.params;
-  const { statusAktif } = req.body || {};
+  const { statusAktif, stok } = req.body || {};
 
   try {
     const [rows] = await db.execute(
-      'SELECT idMenu, statusAktif FROM Menu WHERE idMenu = ? AND idPenjual = ?',
+      'SELECT idMenu, statusAktif, stok FROM Menu WHERE idMenu = ? AND idPenjual = ?',
       [idMenu, idPenjual]
     );
     if (rows.length === 0) {
@@ -297,17 +325,28 @@ const toggleStatusMenu = async (req, res) => {
     }
 
     let statusBaru;
-    if (statusAktif !== undefined) {
+    let stokBaru = rows[0].stok !== undefined ? rows[0].stok : 10;
+
+    if (stok !== undefined && stok !== null && stok !== '') {
+      stokBaru = Math.max(0, parseInt(stok, 10));
+      statusBaru = stokBaru === 0 ? 0 : (statusAktif !== undefined ? (statusAktif ? 1 : 0) : 1);
+    } else if (statusAktif !== undefined) {
       statusBaru = statusAktif ? 1 : 0;
+      if (statusBaru === 1 && stokBaru === 0) {
+        stokBaru = 10; // Kembalikan stok default jika diaktifkan kembali
+      }
     } else {
       statusBaru = rows[0].statusAktif ? 0 : 1;
+      if (statusBaru === 1 && stokBaru === 0) {
+        stokBaru = 10;
+      }
     }
 
-    await db.execute('UPDATE Menu SET statusAktif=? WHERE idMenu=?', [statusBaru, idMenu]);
+    await db.execute('UPDATE Menu SET statusAktif=?, stok=? WHERE idMenu=?', [statusBaru, stokBaru, idMenu]);
     return res.status(200).json({
       success: true,
-      message: statusBaru ? 'Menu berhasil diaktifkan' : 'Menu berhasil dinonaktifkan',
-      data: { isAvailable: Boolean(statusBaru), statusAktif: statusBaru },
+      message: statusBaru ? 'Menu berhasil diaktifkan' : 'Menu berhasil dinonaktifkan (stok habis)',
+      data: { isAvailable: Boolean(statusBaru && stokBaru > 0), statusAktif: statusBaru, stok: stokBaru },
     });
   } catch (error) {
     console.error('[MenuController.toggleStatusMenu] Error:', error);

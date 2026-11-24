@@ -19,6 +19,7 @@ const HalamanFormEditMenu: React.FC<HalamanFormEditMenuProps> = ({
   const [category, setCategory]           = useState(menu.category);
   const [price, setPrice]                 = useState<number>(menu.price);
   const [originalPrice, setOriginalPrice] = useState<number | undefined>(menu.originalPrice);
+  const [stok, setStok]                   = useState<number>(menu.stok !== undefined ? menu.stok : 10);
   const [description, setDescription]     = useState(menu.description);
   const [tasteCategory, setTasteCategory] = useState<string[]>(menu.tasteCategory || []);
   const [modifier, setModifier]           = useState(menu.modifier || '');
@@ -89,19 +90,11 @@ const HalamanFormEditMenu: React.FC<HalamanFormEditMenuProps> = ({
 
     setIsSubmitting(true);
     try {
+      // Masukkan gambar langsung ke database (Base64 data URL) agar bisa dilihat oleh semua pengguna/teman
       let finalFotoUrl = previewUrl || menu.imageUrl;
 
-      // Jika ada berkas file foto baru yang dipilih, unggah ke server melalui API upload
-      if (selectedFile) {
-        try {
-          const uploadRes = await apiClient.uploadFotoMenu(selectedFile);
-          if (uploadRes.success && uploadRes.data?.fotoUrl) {
-            finalFotoUrl = uploadRes.data.fotoUrl;
-          }
-        } catch (uploadErr) {
-          console.warn('[HalamanFormEditMenu] Upload berkas foto fallback ke data URL lokal:', uploadErr);
-        }
-      }
+      const stokNum = Number(stok);
+      const isAvailableFinal = isAvailable && stokNum > 0;
 
       const updated: MenuItem = {
         ...menu,
@@ -116,7 +109,9 @@ const HalamanFormEditMenu: React.FC<HalamanFormEditMenuProps> = ({
         imageUrl: finalFotoUrl,
         tasteCategory,
         modifier: modifier.trim() || undefined,
-        isAvailable
+        stok: stokNum,
+        isAvailable: isAvailableFinal,
+        tag: stokNum === 0 ? 'Stok Habis' : menu.tag,
       };
 
       const numericId = /^menu-(\d+)$/.exec(menu.id);
@@ -131,7 +126,8 @@ const HalamanFormEditMenu: React.FC<HalamanFormEditMenuProps> = ({
             fotoUrl: updated.imageUrl,
             rasaKarakter: updated.tasteCategory,
             modifier: updated.modifier,
-            statusAktif: updated.isAvailable,
+            stok: stokNum,
+            statusAktif: isAvailableFinal,
           });
         } catch (error) {
           const message = error instanceof ApiError
@@ -210,7 +206,7 @@ const HalamanFormEditMenu: React.FC<HalamanFormEditMenuProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Harga Normal Coret (Rp)</label>
             <input
@@ -224,10 +220,22 @@ const HalamanFormEditMenu: React.FC<HalamanFormEditMenuProps> = ({
           </div>
 
           <div>
+            <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Stok Porsi Tersedia *</label>
+            <input
+              type="number"
+              min={0}
+              required
+              value={stok}
+              onChange={(e) => setStok(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#825100]"
+            />
+          </div>
+
+          <div>
             <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Modifier / Varian Khusus</label>
             <input
               type="text"
-              placeholder="misal: Sambal Terasi Ekstra / Keju Leleh"
+              placeholder="misal: Sambal Terasi Ekstra"
               value={modifier}
               onChange={(e) => setModifier(e.target.value)}
               className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#825100]"

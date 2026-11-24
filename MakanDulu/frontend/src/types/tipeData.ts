@@ -21,6 +21,7 @@ export interface MenuItem {
   description: string;
   imageUrl: string;
   isAvailable: boolean;
+  stok?: number;
   salesCount?: string;
   modifier?: string;
 }

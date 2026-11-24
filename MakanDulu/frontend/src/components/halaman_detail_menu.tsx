@@ -77,6 +77,10 @@ const HalamanDetailMenu: React.FC<HalamanDetailMenuProps> = ({
             src={menu.imageUrl}
             alt={menu.name}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-5">
             <div>
@@ -104,7 +108,16 @@ const HalamanDetailMenu: React.FC<HalamanDetailMenuProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[11px] text-[#5a4138]">Harga sudah termasuk pajak resto</span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[11px] text-[#5a4138]">Harga sudah termasuk pajak</span>
+                <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                  menu.isAvailable && (menu.stok ?? 10) > 0
+                    ? 'bg-[#6ffbbe]/30 text-[#004d33]'
+                    : 'bg-[#ffdad6] text-[#ba1a1a]'
+                }`}>
+                  {menu.isAvailable && (menu.stok ?? 10) > 0 ? `Sisa: ${menu.stok ?? 10} porsi` : 'Stok Habis'}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#f0f3ff] text-xs font-bold text-[#111c2d]">
@@ -178,8 +191,8 @@ const HalamanDetailMenu: React.FC<HalamanDetailMenuProps> = ({
               <span className="w-8 text-center text-xs font-black text-[#111c2d]">{qty}</span>
               <button
                 type="button"
-                disabled={!menu.isAvailable || !isStoreOpen}
-                onClick={() => setQty((q) => q + 1)}
+                disabled={!menu.isAvailable || !isStoreOpen || (menu.stok !== undefined && qty >= menu.stok)}
+                onClick={() => setQty((q) => (menu.stok !== undefined ? Math.min(menu.stok, q + 1) : q + 1))}
                 className="w-8 h-8 rounded-xl bg-white hover:bg-[#dee8ff] text-[#111c2d] font-black flex items-center justify-center text-sm shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 +

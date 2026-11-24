@@ -39,6 +39,9 @@ const mapMenuRow = (m) => {
     ? m.rasaKarakter.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
     : [];
 
+  const stokVal = Number(m.stok !== undefined && m.stok !== null ? m.stok : 10);
+  const isAvailable = Boolean(m.statusAktif) && stokVal > 0;
+
   return {
     id: `menu-${m.idMenu}`,
     idMenu: m.idMenu,
@@ -57,7 +60,7 @@ const mapMenuRow = (m) => {
         : undefined),
     rating: m.avgRating ? Number(m.avgRating) : 4.8,
     reviewCount: m.totalUlasan && Number(m.totalUlasan) > 0 ? `${m.totalUlasan} ulasan` : '10+ ulasan',
-    tag: m.diskonPersen ? `Diskon ${m.diskonPersen}%` : 'Menu Mitra',
+    tag: stokVal === 0 ? 'Stok Habis' : (m.diskonPersen ? `Diskon ${m.diskonPersen}%` : 'Menu Mitra'),
     tasteCategory: rasaList,
     category: m.kategori || 'Makanan Utama',
     description: m.deskripsi || '',
@@ -65,7 +68,8 @@ const mapMenuRow = (m) => {
       m.fotoUrl ||
       m.foto ||
       'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
-    isAvailable: Boolean(m.statusAktif),
+    stok: stokVal,
+    isAvailable,
     salesCount: '50+ porsi',
     modifier: m.modifier || undefined,
     createdAt: m.createdAt,
@@ -166,12 +170,12 @@ const getKatalogRekomendasi = async (req, res) => {
     const [menuRows] = await db.execute(
       `SELECT m.idMenu, m.idPenjual, m.namaMenu, m.harga, m.hargaNormal, m.diskonPersen,
               m.kategori, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.deskripsi,
-              m.rasaKarakter, m.modifier, m.statusAktif, m.createdAt,
+              m.rasaKarakter, m.modifier, m.stok, m.statusAktif, m.createdAt,
               p.namaToko, p.alamatToko, p.nomorTelepon,
               ROUND(AVG(u.rating), 1) AS avgRating,
               COUNT(DISTINCT u.idUlasan) AS totalUlasan
        FROM Menu m
-       JOIN Penjual p ON m.idPenjual = p.idPenjual
+       LEFT JOIN Penjual p ON m.idPenjual = p.idPenjual
        LEFT JOIN DetailPesanan dp ON m.idMenu = dp.idMenu
        LEFT JOIN Ulasan u ON dp.idPesanan = u.idPesanan
        GROUP BY m.idMenu, p.idPenjual
@@ -223,12 +227,12 @@ const getDetailMenu = async (req, res) => {
     const [rows] = await db.execute(
       `SELECT m.idMenu, m.idPenjual, m.namaMenu, m.harga, m.hargaNormal, m.diskonPersen,
               m.kategori, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.deskripsi,
-              m.rasaKarakter, m.modifier, m.statusAktif, m.createdAt,
+              m.rasaKarakter, m.modifier, m.stok, m.statusAktif, m.createdAt,
               p.namaToko, p.alamatToko, p.nomorTelepon,
               ROUND(AVG(u.rating), 1) AS avgRating,
               COUNT(DISTINCT u.idUlasan) AS totalUlasan
        FROM Menu m
-       JOIN Penjual p ON m.idPenjual = p.idPenjual
+       LEFT JOIN Penjual p ON m.idPenjual = p.idPenjual
        LEFT JOIN DetailPesanan dp ON m.idMenu = dp.idMenu
        LEFT JOIN Ulasan u ON dp.idPesanan = u.idPesanan
        WHERE m.idMenu = ?
@@ -269,10 +273,10 @@ const searchKatalog = async (req, res) => {
     let sql = `
       SELECT m.idMenu, m.idPenjual, m.namaMenu, m.harga, m.hargaNormal, m.diskonPersen,
              m.kategori, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.deskripsi,
-             m.rasaKarakter, m.modifier, m.statusAktif, m.createdAt,
+             m.rasaKarakter, m.modifier, m.stok, m.statusAktif, m.createdAt,
              p.namaToko, p.alamatToko, p.nomorTelepon
       FROM Menu m
-      JOIN Penjual p ON m.idPenjual = p.idPenjual
+      LEFT JOIN Penjual p ON m.idPenjual = p.idPenjual
       WHERE 1=1
     `;
     const params = [];
@@ -311,10 +315,10 @@ const searchKatalog = async (req, res) => {
     const [allRows] = await db.execute(
       `SELECT m.idMenu, m.idPenjual, m.namaMenu, m.harga, m.hargaNormal, m.diskonPersen,
               m.kategori, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.deskripsi,
-              m.rasaKarakter, m.modifier, m.statusAktif, m.createdAt,
+              m.rasaKarakter, m.modifier, m.stok, m.statusAktif, m.createdAt,
               p.namaToko, p.alamatToko, p.nomorTelepon
        FROM Menu m
-       JOIN Penjual p ON m.idPenjual = p.idPenjual
+       LEFT JOIN Penjual p ON m.idPenjual = p.idPenjual
        WHERE m.statusAktif = 1
        ORDER BY m.idMenu DESC`
     );

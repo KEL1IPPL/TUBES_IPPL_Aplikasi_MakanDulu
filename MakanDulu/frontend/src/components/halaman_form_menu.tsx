@@ -19,6 +19,7 @@ const HalamanFormMenu: React.FC<HalamanFormMenuProps> = ({
   const [category, setCategory]           = useState('ayam-bebek');
   const [price, setPrice]                 = useState<number>(35000);
   const [originalPrice, setOriginalPrice] = useState<number | undefined>(undefined);
+  const [stok, setStok]                   = useState<number>(20);
   const [description, setDescription]     = useState('');
   const [tasteCategory, setTasteCategory] = useState<string[]>(['pedas', 'gurih']);
   const [modifier, setModifier]           = useState('');
@@ -113,20 +114,8 @@ const HalamanFormMenu: React.FC<HalamanFormMenuProps> = ({
 
     setIsSubmitting(true);
     try {
-      let finalFotoUrl = previewUrl || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
-
-      // Jika ada berkas file foto yang dipilih, unggah ke server melalui API upload
-      if (selectedFile) {
-        try {
-          const uploadRes = await apiClient.uploadFotoMenu(selectedFile);
-          if (uploadRes.success && uploadRes.data?.fotoUrl) {
-            finalFotoUrl = uploadRes.data.fotoUrl;
-          }
-        } catch (uploadErr) {
-          console.warn('[HalamanFormMenu] Upload berkas foto fallback ke data URL lokal:', uploadErr);
-          // Jika upload gagal, tetap gunakan data URL lokal pratinjau
-        }
-      }
+      // Masukkan berkas gambar langsung ke database menu (Base64 data URL) agar bisa dilihat oleh semua pengguna/teman
+      const finalFotoUrl = previewUrl || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
 
       // Langkah 5→6→7: Kirim ke menu_controller → validasi → simpan ke DB
       const response = await apiClient.tambahMenu({
@@ -138,7 +127,8 @@ const HalamanFormMenu: React.FC<HalamanFormMenuProps> = ({
         fotoUrl:      finalFotoUrl,
         rasaKarakter: tasteCategory,
         modifier:     modifier.trim() || undefined,
-        statusAktif:  isAvailable,
+        stok:         Number(stok),
+        statusAktif:  isAvailable && Number(stok) > 0,
       });
 
       // Langkah 8-9: menu_ditambahkan → tampilkan pesan "Menu Berhasil Ditambahkan"
@@ -155,11 +145,12 @@ const HalamanFormMenu: React.FC<HalamanFormMenuProps> = ({
         discountPercentage: apiItem.discountPercentage,
         rating:             apiItem.rating,
         reviewCount:        apiItem.reviewCount,
-        tag:                apiItem.tag,
+        tag:                Number(stok) === 0 ? 'Stok Habis' : apiItem.tag,
         tasteCategory:      apiItem.tasteCategory,
         category:           apiItem.category,
         description:        apiItem.description,
         imageUrl:           apiItem.imageUrl || finalFotoUrl,
+        stok:               apiItem.stok !== undefined ? Number(apiItem.stok) : Number(stok),
         isAvailable:        apiItem.isAvailable,
         modifier:           apiItem.modifier,
         salesCount:         apiItem.salesCount,
@@ -261,15 +252,27 @@ const HalamanFormMenu: React.FC<HalamanFormMenuProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Harga Normal Coret (Opsional Promo)</label>
+            <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Harga Normal Coret (Opsional)</label>
             <input
               type="number"
               min={price}
-              placeholder="Kosongkan jika tidak ada diskon"
+              placeholder="Kosongkan jika tanpa promo"
               value={originalPrice || ''}
               onChange={(e) => setOriginalPrice(e.target.value ? Number(e.target.value) : undefined)}
+              className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#825100]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Stok Porsi Tersedia *</label>
+            <input
+              type="number"
+              min={0}
+              required
+              value={stok}
+              onChange={(e) => setStok(Math.max(0, parseInt(e.target.value) || 0))}
               className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#825100]"
             />
           </div>
@@ -278,7 +281,7 @@ const HalamanFormMenu: React.FC<HalamanFormMenuProps> = ({
             <label className="block text-xs font-bold text-[#111c2d] mb-1.5">Modifier / Varian Khusus</label>
             <input
               type="text"
-              placeholder="misal: Sambal Terasi Ekstra / Keju Leleh"
+              placeholder="misal: Sambal Terasi Ekstra"
               value={modifier}
               onChange={(e) => setModifier(e.target.value)}
               className="w-full px-4 py-2.5 bg-[#f9f9ff] text-xs sm:text-sm rounded-xl border border-[#dee8ff] focus:outline-none focus:ring-2 focus:ring-[#825100]"

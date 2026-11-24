@@ -619,6 +619,10 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                         src={item.imageUrl}
                         alt={item.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
+                        }}
                       />
                       {!item.isAvailable ? (
                         <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
@@ -627,9 +631,16 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                           </span>
                         </div>
                       ) : (
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#a33900] text-white text-[10px] font-extrabold uppercase">
-                          Rekomendasi
-                        </span>
+                        <>
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#a33900] text-white text-[10px] font-extrabold uppercase">
+                            Rekomendasi
+                          </span>
+                          {item.stok !== undefined && (
+                            <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-bold backdrop-blur-xs">
+                              Stok: {item.stok}
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -1002,13 +1013,21 @@ export const HalamanCheckout: React.FC<HalamanCheckoutProps> = ({
                       src={item.imageUrl}
                       alt={item.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
+                      }}
                     />
-                    {!item.isAvailable && (
+                    {!item.isAvailable ? (
                       <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
                         <span className="px-3 py-1 rounded-xl bg-[#ba1a1a] text-white text-xs font-black shadow-sm uppercase tracking-wider">
                           Stok Habis
                         </span>
                       </div>
+                    ) : item.stok !== undefined && (
+                      <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-lg bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold">
+                        Sisa {item.stok} porsi
+                      </span>
                     )}
                     {item.isAvailable && item.discountPercentage && item.discountPercentage > 0 && (
                       <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-lg bg-[#ba1a1a] text-white text-[10px] font-extrabold uppercase shadow-xs">

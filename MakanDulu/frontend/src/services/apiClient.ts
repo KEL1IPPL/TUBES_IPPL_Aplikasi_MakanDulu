@@ -39,6 +39,7 @@ export interface MenuPayload {
   fotoUrl?: string;
   rasaKarakter?: string[];
   modifier?: string;
+  stok?: number;
   statusAktif?: boolean;
 }
 
@@ -54,6 +55,7 @@ export interface MenuApiItem {
   imageUrl: string;
   tasteCategory: string[];
   modifier?: string;
+  stok?: number;
   isAvailable: boolean;
   restaurant: string;
   distance: string;

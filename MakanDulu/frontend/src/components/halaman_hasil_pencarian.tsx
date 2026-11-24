@@ -148,6 +148,11 @@ export const HalamanHasilPencarian: React.FC<HalamanHasilPencarianProps> = ({
                       ★ {menu.rating}
                     </span>
                   )}
+                  {menu.isAvailable && menu.stok !== undefined && (
+                    <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-lg bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold">
+                      Sisa {menu.stok} porsi
+                    </span>
+                  )}
                   {menu.isAvailable && menu.discountPercentage && (
                     <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-[#ba1a1a] text-white text-[10px] font-black shadow-xs">
                       Diskon {menu.discountPercentage}%

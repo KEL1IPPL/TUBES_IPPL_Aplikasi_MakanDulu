@@ -206,7 +206,15 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
               <div>
                 <div className="flex gap-4 mb-3">
                   <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-[#f0f3ff] shrink-0">
-                    <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80';
+                      }}
+                    />
                     {!item.isAvailable && (
                       <span className="absolute inset-0 bg-black/60 flex items-center justify-center text-[10px] font-black text-white">
                         HABIS
@@ -231,7 +239,7 @@ const HalamanKelolaMenu: React.FC<HalamanKelolaMenuProps> = ({
                     <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
                       item.isAvailable ? 'bg-[#6ffbbe]/30 text-[#004d33]' : 'bg-[#ffdad6] text-[#ba1a1a]'
                     }`}>
-                      {item.isAvailable ? 'Stok Tersedia' : 'Stok Habis'}
+                      {item.isAvailable ? `Stok: ${item.stok ?? 10} porsi` : 'Stok Habis'}
                     </span>
                   </div>
                 </div>

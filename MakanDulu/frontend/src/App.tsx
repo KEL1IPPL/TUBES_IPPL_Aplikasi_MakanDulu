@@ -166,6 +166,7 @@ useEffect(() => {
           category: item.category,
           description: item.description,
           imageUrl: item.imageUrl,
+          stok: item.stok !== undefined ? Number(item.stok) : 10,
           isAvailable: item.isAvailable,
           modifier: item.modifier,
           salesCount: item.salesCount,
