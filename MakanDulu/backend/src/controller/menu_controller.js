@@ -39,10 +39,15 @@ const validasiInputMenu = (body) => {
   }
 
   if (fotoUrl && fotoUrl.trim()) {
-    try {
-      new URL(fotoUrl.trim());
-    } catch {
-      errors.push('URL foto tidak valid. Harus berformat https://...');
+    const trimmed = fotoUrl.trim();
+    const isDataUrl = trimmed.startsWith('data:image/');
+    const isRelative = trimmed.startsWith('/uploads/') || trimmed.startsWith('/');
+    if (!isDataUrl && !isRelative) {
+      try {
+        new URL(trimmed);
+      } catch {
+        errors.push('Format foto tidak valid. Gunakan file gambar atau URL yang valid.');
+      }
     }
   }
 
@@ -333,4 +338,33 @@ const hapusMenu = async (req, res) => {
   }
 };
 
-module.exports = { tambahMenu, getMenuPenjual, updateMenu, toggleStatusMenu, hapusMenu };
+// Handler Upload File Foto Menu
+const uploadFotoMenu = (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'Tidak ada berkas file foto yang diunggah.',
+    });
+  }
+
+  const fotoUrl = `/uploads/menu/${req.file.filename}`;
+  return res.status(200).json({
+    success: true,
+    message: 'Foto menu berhasil diunggah.',
+    data: {
+      fotoUrl,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      size: req.file.size,
+    },
+  });
+};
+
+module.exports = {
+  tambahMenu,
+  getMenuPenjual,
+  updateMenu,
+  toggleStatusMenu,
+  hapusMenu,
+  uploadFotoMenu,
+};

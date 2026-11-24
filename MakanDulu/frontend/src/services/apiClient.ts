@@ -223,6 +223,40 @@ export const toggleMenuStatus = (idMenu: number, statusAktif?: boolean) =>
 export const hapusMenu = (idMenu: number) =>
   menuRequest<MenuResponse>(`/api/menu/${idMenu}`, 'DELETE');
 
+export interface UploadFotoMenuResponse {
+  success: boolean;
+  message: string;
+  data: {
+    fotoUrl: string;
+    filename: string;
+    originalName: string;
+    size: number;
+  };
+}
+
+export const uploadFotoMenu = async (file: File): Promise<UploadFotoMenuResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const formData = new FormData();
+  formData.append('fotoMenu', file);
+
+  const response = await fetch('/api/menu/upload-foto', {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const data = (await safeParseJson(response)) as UploadFotoMenuResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal mengunggah foto menu.', response.status, data);
+  }
+  return data;
+};
+
 export const getProfilPengguna = async (): Promise<AuthResponse> => {
   const token = localStorage.getItem('makandulu_token');
   if (!token) {
@@ -457,6 +491,136 @@ export const simpanPreferensiMakanan = async (
   return data;
 };
 
+export interface RiwayatPesananItem {
+  id: string;
+  idPesanan: number;
+  orderNumber: string;
+  orderTime: string;
+  tanggalPemesanan: string;
+  status: 'selesai' | 'dimasak' | 'diantar' | 'batal';
+  statusPesananDb: string;
+  restaurant: string;
+  restaurantAddress?: string;
+  idPenjual: number;
+  items: Array<{
+    id: string;
+    menuId: string;
+    idMenu: number;
+    name: string;
+    price: number;
+    qty: number;
+    subtotal: number;
+    imageUrl?: string;
+    restaurant?: string;
+  }>;
+  subtotal: number;
+  shippingFee: number;
+  serviceFee: number;
+  discount: number;
+  total: number;
+  paymentMethod: string;
+  statusPembayaran: string;
+  address: {
+    label: string;
+    street: string;
+    details?: string;
+  };
+  review?: {
+    idUlasan: number;
+    rating: number;
+    komentar: string;
+    fotoUlasan?: string;
+    tanggalUlasan?: string;
+  } | null;
+}
+
+export interface RiwayatPesananResponse {
+  success: boolean;
+  message?: string;
+  data: RiwayatPesananItem[];
+}
+
+export const getRiwayatPesanan = async (): Promise<RiwayatPesananResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await fetch('/api/pemesanan/riwayat', { headers });
+  const data = (await safeParseJson(response)) as RiwayatPesananResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal memuat riwayat pesanan.', response.status, data);
+  }
+  return data;
+};
+
+export interface KirimUlasanPayload {
+  idPesanan: number;
+  rating: number;
+  komentar: string;
+  tags?: string[];
+  fotoUlasan?: string;
+  idPembeli?: number;
+}
+
+export interface KirimUlasanResponse {
+  success: boolean;
+  message: string;
+  data: {
+    idUlasan: number;
+    idPesanan: number;
+    idPenjual: number;
+    rating: number;
+    komentar: string;
+    fotoUlasan?: string | null;
+    rekapitulasiRating: {
+      toko: {
+        idPenjual: number;
+        rataRata: number;
+        totalUlasan: number;
+      };
+      menu: Array<{
+        idMenu: number;
+        namaMenu: string;
+        rataRata: number;
+        totalUlasan: number;
+      }>;
+    };
+  };
+}
+
+export const kirimUlasan = async (
+  payload: KirimUlasanPayload
+): Promise<KirimUlasanResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await fetch('/api/ulasan', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = (await safeParseJson(response)) as KirimUlasanResponse;
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal mengirim ulasan.', response.status, data);
+  }
+  return data;
+};
+
+export const getUlasanPesanan = async (idPesanan: number) => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: HeadersInit = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await fetch(`/api/ulasan/pesanan/${idPesanan}`, { headers });
+  return safeParseJson(response);
+};
+
 const apiClient = {
   getMenus,
   tambahMenu,
@@ -475,6 +639,10 @@ const apiClient = {
   kosongkanKeranjang,
   simpanPreferensiMakanan,
   lewatiPreferensiMakanan,
+  getRiwayatPesanan,
+  kirimUlasan,
+  getUlasanPesanan,
+  uploadFotoMenu,
 };
 
 export default apiClient;

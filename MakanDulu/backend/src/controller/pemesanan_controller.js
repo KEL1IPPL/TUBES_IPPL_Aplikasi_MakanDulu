@@ -339,7 +339,8 @@ const notifikasiMidtrans = async (req, res) => {
       statusBaruPembayaran = 'Pembayaran Berhasil';
       statusBaruPesanan = 'Menunggu Konfirmasi Penjual';
     } else if (['cancel', 'deny', 'expire'].includes(transactionStatus)) {
-      statusBaruPembayaran = 'Pembayaran Gagal';
+      statusBaruPembayaran = transactionStatus === 'expire' ? 'Kadaluarsa' : 'Pembayaran Dibatalkan';
+      statusBaruPesanan = 'Dibatalkan';
     } else if (transactionStatus === 'pending') {
       statusBaruPembayaran = 'Menunggu Pembayaran';
     }
@@ -470,9 +471,135 @@ const getStatusPesanan = async (req, res) => {
   }
 };
 
+// 5. AMBIL RIWAYAT PESANAN PEMBELI (Untuk Halaman Riwayat & Ulasan)
+const getRiwayatPesanan = async (req, res) => {
+  const idPembeliToken = req.user?.id;
+  const idPembeliQuery = req.query.idPembeli;
+  const idPembeli = idPembeliToken || idPembeliQuery || 1;
+
+  try {
+    const [pesananRows] = await db.execute(
+      `SELECT p.idPesanan, p.idPembeli, p.idPenjual, p.tanggalPemesanan, p.alamatPengantaran,
+              p.statusPesanan, p.totalHarga, p.totalDiskon, p.kodeVoucher,
+              b.idPembayaran, b.metodePembayaran, b.statusPembayaran, b.totalBayar,
+              penj.namaToko, penj.alamatToko,
+              u.idUlasan, u.rating, u.komentar, u.fotoUlasan, u.tanggalUlasan
+       FROM Pesanan p
+       LEFT JOIN Pembayaran b ON p.idPesanan = b.idPesanan
+       LEFT JOIN Penjual penj ON p.idPenjual = penj.idPenjual
+       LEFT JOIN Ulasan u ON p.idPesanan = u.idPesanan
+       WHERE p.idPembeli = ?
+       ORDER BY p.idPesanan DESC`,
+      [idPembeli]
+    );
+
+    if (pesananRows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+      });
+    }
+
+    const idPesananList = pesananRows.map((p) => p.idPesanan);
+    const placeholders = idPesananList.map(() => '?').join(',');
+
+    const [itemRows] = await db.execute(
+      `SELECT dp.idDetailPesanan, dp.idPesanan, dp.idMenu, dp.jumlah, dp.hargaSatuan, dp.subtotal,
+              m.namaMenu, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.kategori
+       FROM DetailPesanan dp
+       JOIN Menu m ON dp.idMenu = m.idMenu
+       WHERE dp.idPesanan IN (${placeholders})`,
+      idPesananList
+    );
+
+    const itemsByPesanan = {};
+    for (const item of itemRows) {
+      if (!itemsByPesanan[item.idPesanan]) {
+        itemsByPesanan[item.idPesanan] = [];
+      }
+      itemsByPesanan[item.idPesanan].push({
+        id: `c-${item.idDetailPesanan}`,
+        menuId: `menu-${item.idMenu}`,
+        idMenu: item.idMenu,
+        name: item.namaMenu,
+        price: Number(item.hargaSatuan),
+        qty: item.jumlah,
+        subtotal: Number(item.subtotal),
+        imageUrl: item.fotoUrl,
+        category: item.kategori,
+      });
+    }
+
+    const formattedOrders = pesananRows.map((p) => {
+      const items = itemsByPesanan[p.idPesanan] || [];
+      const statusRaw = String(p.statusPesanan || '').toLowerCase();
+      let statusMapped = 'dimasak';
+      if (statusRaw.includes('selesai')) statusMapped = 'selesai';
+      else if (statusRaw.includes('antar')) statusMapped = 'diantar';
+      else if (statusRaw.includes('siap') || statusRaw.includes('terima')) statusMapped = 'dimasak';
+      else if (statusRaw.includes('batal')) statusMapped = 'batal';
+
+      return {
+        id: `ord-${p.idPesanan}`,
+        idPesanan: p.idPesanan,
+        orderNumber: `MKD-${String(p.idPesanan).padStart(5, '0')}`,
+        orderTime: p.tanggalPemesanan
+          ? new Date(p.tanggalPemesanan).toLocaleString('id-ID', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })
+          : '',
+        tanggalPemesanan: p.tanggalPemesanan,
+        status: statusMapped,
+        statusPesananDb: p.statusPesanan,
+        restaurant: p.namaToko || 'Mitra MakanDulu',
+        restaurantAddress: p.alamatToko || '',
+        idPenjual: p.idPenjual,
+        items: items.map((it) => ({
+          ...it,
+          restaurant: p.namaToko || 'Mitra MakanDulu',
+        })),
+        subtotal: Math.max(0, Number(p.totalHarga) + Number(p.totalDiskon || 0) - 12000),
+        shippingFee: 10000,
+        serviceFee: 2000,
+        discount: Number(p.totalDiskon || 0),
+        total: Number(p.totalHarga),
+        paymentMethod: (p.metodePembayaran || 'Midtrans').toLowerCase(),
+        statusPembayaran: p.statusPembayaran || 'Belum Dibayar',
+        address: {
+          label: 'Alamat Pengantaran',
+          street: p.alamatPengantaran || 'Alamat tujuan',
+          details: '',
+        },
+        review: p.idUlasan
+          ? {
+              idUlasan: p.idUlasan,
+              rating: p.rating,
+              komentar: p.komentar,
+              fotoUlasan: p.fotoUlasan,
+              tanggalUlasan: p.tanggalUlasan,
+            }
+          : null,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: formattedOrders,
+    });
+  } catch (error) {
+    console.error('[PemesananController.getRiwayatPesanan] Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil riwayat pesanan: ' + error.message,
+    });
+  }
+};
+
 module.exports = {
   buatPesanan,
   notifikasiMidtrans,
   konfirmasiPembayaranSelesai,
   getStatusPesanan,
+  getRiwayatPesanan,
 };

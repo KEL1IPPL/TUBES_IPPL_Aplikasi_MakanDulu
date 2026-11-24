@@ -55,8 +55,8 @@ const mapMenuRow = (m) => {
       (m.hargaNormal && Number(m.hargaNormal) > Number(m.harga)
         ? Math.round(((Number(m.hargaNormal) - Number(m.harga)) / Number(m.hargaNormal)) * 100)
         : undefined),
-    rating: 4.8,
-    reviewCount: '100+ ulasan',
+    rating: m.avgRating ? Number(m.avgRating) : 4.8,
+    reviewCount: m.totalUlasan && Number(m.totalUlasan) > 0 ? `${m.totalUlasan} ulasan` : '10+ ulasan',
     tag: m.diskonPersen ? `Diskon ${m.diskonPersen}%` : 'Menu Mitra',
     tasteCategory: rasaList,
     category: m.kategori || 'Makanan Utama',
@@ -82,8 +82,8 @@ const mapTokoRow = (p) => {
     address: p.alamatToko || '',
     tagline: 'Mitra Kuliner Terpercaya Pilihan MakanDulu',
     cuisineType: 'Kuliner Nusantara & Aneka Rasa',
-    rating: 4.8,
-    reviewCount: '250+ ulasan',
+    rating: p.avgRating ? Number(p.avgRating) : 4.8,
+    reviewCount: p.totalUlasan && Number(p.totalUlasan) > 0 ? `${p.totalUlasan} ulasan` : '25+ ulasan',
     distance: '1.2 km',
     deliveryTime: '15-25 mnt',
     openingHours: '08:00 - 21:00 WIB',
@@ -162,24 +162,34 @@ const getKatalogRekomendasi = async (req, res) => {
     // 1. ambil_preferensi -> Entity Preferensi_makanan
     const preferensi = await ambilPreferensiPembeli(idPembeli);
 
-    // 2. ambil_menu -> Entity Menu JOIN Penjual (semua menu agar yang nonaktif tampil abu-abu & stok habis)
+    // 2. ambil_menu -> Entity Menu JOIN Penjual & kalkulasi rata-rata rating ulasan
     const [menuRows] = await db.execute(
       `SELECT m.idMenu, m.idPenjual, m.namaMenu, m.harga, m.hargaNormal, m.diskonPersen,
               m.kategori, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.deskripsi,
               m.rasaKarakter, m.modifier, m.statusAktif, m.createdAt,
-              p.namaToko, p.alamatToko, p.nomorTelepon
+              p.namaToko, p.alamatToko, p.nomorTelepon,
+              ROUND(AVG(u.rating), 1) AS avgRating,
+              COUNT(DISTINCT u.idUlasan) AS totalUlasan
        FROM Menu m
        JOIN Penjual p ON m.idPenjual = p.idPenjual
+       LEFT JOIN DetailPesanan dp ON m.idMenu = dp.idMenu
+       LEFT JOIN Ulasan u ON dp.idPesanan = u.idPesanan
+       GROUP BY m.idMenu, p.idPenjual
        ORDER BY m.statusAktif DESC, m.idMenu DESC`
     );
 
     const allMenus = menuRows.map(mapMenuRow);
 
-    // 3. Entity Penjual -> daftar resto mitra yang ada di database
+    // 3. Entity Penjual -> daftar resto mitra yang ada di database beserta rata-rata rating
     const [tokoRows] = await db.execute(
-      `SELECT idPenjual, namaToko, namaPemilik, alamatToko, nomorTelepon
-       FROM Penjual
-       ORDER BY idPenjual ASC`
+      `SELECT p.idPenjual, p.namaToko, p.namaPemilik, p.alamatToko, p.nomorTelepon,
+              ROUND(AVG(u.rating), 1) AS avgRating,
+              COUNT(DISTINCT u.idUlasan) AS totalUlasan
+       FROM Penjual p
+       LEFT JOIN Pesanan pes ON p.idPenjual = pes.idPenjual
+       LEFT JOIN Ulasan u ON pes.idPesanan = u.idPesanan
+       GROUP BY p.idPenjual
+       ORDER BY p.idPenjual ASC`
     );
     const tokoList = tokoRows.map(mapTokoRow);
 
@@ -214,10 +224,15 @@ const getDetailMenu = async (req, res) => {
       `SELECT m.idMenu, m.idPenjual, m.namaMenu, m.harga, m.hargaNormal, m.diskonPersen,
               m.kategori, COALESCE(m.fotoUrl, m.foto) AS fotoUrl, m.deskripsi,
               m.rasaKarakter, m.modifier, m.statusAktif, m.createdAt,
-              p.namaToko, p.alamatToko, p.nomorTelepon
+              p.namaToko, p.alamatToko, p.nomorTelepon,
+              ROUND(AVG(u.rating), 1) AS avgRating,
+              COUNT(DISTINCT u.idUlasan) AS totalUlasan
        FROM Menu m
        JOIN Penjual p ON m.idPenjual = p.idPenjual
-       WHERE m.idMenu = ?`,
+       LEFT JOIN DetailPesanan dp ON m.idMenu = dp.idMenu
+       LEFT JOIN Ulasan u ON dp.idPesanan = u.idPesanan
+       WHERE m.idMenu = ?
+       GROUP BY m.idMenu, p.idPenjual`,
       [idMenu]
     );
 

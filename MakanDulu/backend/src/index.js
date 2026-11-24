@@ -13,6 +13,7 @@ process.on('exit', (code) => {
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 const menuRoutes       = require('./routes/pencarianMenu');
 const katalogRoutes    = require('./routes/katalog_routes');
@@ -22,6 +23,7 @@ const ocrRoutes        = require('./routes/pembaca_foto');       // ← OCR doku
 const pemesananRoutes  = require('./routes/pemesanan_routes');   // ← Pemesanan & Checkout
 const pembayaranRoutes = require('./routes/pembayaran_routes');  // ← Midtrans Payment Gateway
 const keranjangRoutes  = require('./routes/keranjang_routes');   // ← Keranjang Pembeli
+const ulasanRoutes     = require('./routes/ulasan_routes');      // ← Ulasan & Rating Pesanan
 const { verifikasiMailer } = require('./services/mailtrap');
 
 if (!process.env.JWT_SECRET) {
@@ -41,7 +43,9 @@ app.use(cors({
     ],
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get('/', (req, res) => {
     res.send('Backend MakanDulu berhasil berjalan!');
@@ -61,6 +65,7 @@ app.use('/api/halaman-preferensi-makanan', preferenceRoutes);
 app.use('/api/pemesanan',                  pemesananRoutes);
 app.use('/api/pembayaran',                 pembayaranRoutes);
 app.use('/api/keranjang',                  keranjangRoutes);
+app.use('/api/ulasan',                     ulasanRoutes);
 
 // Rute OCR dokumen legalitas penjual (KTP, NPWP, NIB)
 app.use('/api/dokumen',    ocrRoutes);

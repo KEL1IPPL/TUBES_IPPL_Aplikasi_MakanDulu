@@ -33,6 +33,7 @@ import { ModalProfil } from './components/ModalProfil';
 import { HalamanCheckout } from './views/HalamanCheckout';
 import { KeranjangPembeli } from './views/KeranjangPembeli';
 import { PelacakanPesanan } from './views/PelacakanPesanan';
+import HalamanRiwayatPesanan from './components/halaman_riwayat_pesanan';
 import HalamanDashboardPenjual from './components/halaman_dashboard_penjual';
 import HalamanPesananPenjual from './components/halaman_pesanan_penjual';
 import HalamanKelolaMenu from './components/halaman_kelola_menu';
@@ -662,16 +663,55 @@ useEffect(() => {
                 }}
                 onOrderCompleted={() => {
                   setPesananSaatIni(null);
+                  setTabAktifPembeli('riwayat');
                 }}
                 showToast={tampilkanToast}
                 isMerchantView={false}
               />
             )}
+
+            {tabAktifPembeli === 'riwayat' && (
+              <HalamanRiwayatPesanan
+                orderHistory={pesananSaatIni ? [pesananSaatIni] : []}
+                onBackToCatalog={() => {
+                  setNamaTokoDilihat(null);
+                  setTabAktifPembeli('katalog');
+                }}
+                onReorder={(order) => {
+                  if (order.items && order.items.length > 0) {
+                    const newCartItems: CartItem[] = order.items.map((it: any) => ({
+                      id: it.id || `c-${Date.now()}-${Math.random()}`,
+                      menuId: it.menuId || `menu-${it.idMenu || 1}`,
+                      name: it.name,
+                      price: it.price,
+                      qty: it.qty || 1,
+                      sublabel: it.sublabel,
+                      restaurant: it.restaurant || order.restaurant || 'Mitra Kuliner'
+                    }));
+                    setKeranjang(newCartItems);
+                    setTabAktifPembeli('keranjang');
+                    tampilkanToast(
+                      'Menu Ditambahkan ke Keranjang',
+                      `Pesanan #${order.orderNumber || order.idPesanan} siap dipesan ulang.`
+                    );
+                  }
+                }}
+                showToast={tampilkanToast}
+                onReviewSubmitted={(_rekapRating) => {
+                  // Muat ulang katalog agar rating toko & menu terupdate seketika di halaman katalog
+                  apiClient.getKatalog().then((res) => {
+                    if (res.success && res.data) {
+                      if (Array.isArray(res.data.menus)) setDaftarMenu(res.data.menus);
+                      if (Array.isArray(res.data.tokoList)) setDaftarToko(res.data.tokoList);
+                      if (Array.isArray(res.data.rekomendasi)) setDaftarRekomendasi(res.data.rekomendasi);
+                    }
+                  }).catch(() => {});
+                }}
+              />
+            )}
           </>
         ) : (
-          /* ========================================= */
-          /* MODE PENJUAL: MENU PESANAN, KELOLA MENU & STOK, VOUCHER, LAPORAN, & DASHBOARD */
-          /* ========================================= */
+
           <>
             {tabAktifPenjual === 'pesanan' && (
               <HalamanPesananPenjual

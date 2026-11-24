@@ -5,6 +5,7 @@ const router = express.Router();
 const {
   buatPesanan,
   getStatusPesanan,
+  getRiwayatPesanan,
 } = require('../controller/pemesanan_controller');
 const { autentikasiJWT } = require('../middleware/autentikasiJWT');
 
@@ -19,6 +20,9 @@ const autentikasiOpsional = (req, res, next) => {
 
 // POST /api/pemesanan -> Buat pesanan & inisialisasi Midtrans Snap
 router.post('/', autentikasiOpsional, buatPesanan);
+
+// GET /api/pemesanan/riwayat -> Ambil riwayat pesanan pembeli
+router.get('/riwayat', autentikasiOpsional, getRiwayatPesanan);
 
 // GET /api/pemesanan/:idPesanan -> Cek status pesanan & detail item
 router.get('/:idPesanan', autentikasiOpsional, getStatusPesanan);

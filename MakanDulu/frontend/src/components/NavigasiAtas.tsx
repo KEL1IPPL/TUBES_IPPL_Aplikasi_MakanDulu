@@ -258,6 +258,18 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               )}
             </button>
+
+            <button
+              onClick={() => setActivePembeliTab('riwayat')}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activePembeliTab === 'riwayat'
+                  ? 'bg-[#cc4900] text-white shadow-xs'
+                  : 'text-[#5a4138] hover:text-[#111c2d] hover:bg-[#dee8ff]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">history</span>
+              <span>Riwayat Pesanan</span>
+            </button>
           </div>
         ) : (
           /* Menu Bar Penjual: Menu Pesanan, Kelola Menu & Stok, Kelola Voucher, Laporan, Dashboard */
