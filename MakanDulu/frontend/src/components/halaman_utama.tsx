@@ -7,141 +7,174 @@ interface HalamanUtamaProps {
 }
 
 export const HalamanPilihPeran: React.FC<HalamanUtamaProps> = ({ onSelectRole }) => {
-  return (
-    <div className="min-h-screen bg-[#f9f9ff] flex flex-col justify-between">
-      {/* Top Bar Accent */}
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12">
-        <div className="w-full max-w-5xl flex flex-col items-center">
-          {/* Brand Header */}
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="flex items-center gap-3 mb-3">
-              <img
-                alt="MakanDulu Brand Logo"
-                className="h-10 w-auto object-contain"
-                src={LOGO_URL}
-              />
-              <span className="text-2xl sm:text-3xl font-extrabold text-[#111c2d] tracking-tight">
-                MakanDulu
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111c2d] tracking-tight">
-              Pilih Peran Anda untuk Memulai
-            </h1>
-            <p className="text-xs sm:text-sm text-[#5a4138] mt-2 max-w-xl leading-relaxed">
-              Tentukan identitas akses di platform MakanDulu. Anda akan diarahkan langsung ke antarmuka kerja sesuai peran yang dipilih.
-            </p>
-          </div>
-
-          {/* Dual Role Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-            {/* Card 1: Pembeli */}
-            <div
-              onClick={() => onSelectRole('Pembeli')}
-              className="group relative cursor-pointer rounded-3xl bg-white p-7 sm:p-8 transition-all duration-300 border-2 border-[#dee8ff] hover:border-[#a33900] shadow-sm hover:shadow-2xl flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between">
-                  <div className="w-16 h-16 rounded-2xl bg-[#ffdbce] text-[#a33900] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined text-3xl">ramen_dining</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full bg-[#ffdbce] text-[#a33900] text-[11px] font-bold uppercase">
-                    Konsumen
-                  </span>
-                </div>
-
-                <div className="mt-6">
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-[#111c2d] mt-1 group-hover:text-[#a33900] transition-colors">
-                    Masuk Sebagai Pembeli
-                  </h3>
-                  <p className="text-xs sm:text-sm text-[#5a4138] mt-2 leading-relaxed">
-                    Jelajahi aneka kuliner lezat, pilih makanan sesuai selera rasa, masukkan ke keranjang kasir terintegrasi, dan lacak kurir di halaman Live Tracking.
-                  </p>
-
-                  <div className="mt-5 space-y-2 pt-4 border-t border-[#f0f3ff] text-xs text-[#5a4138]">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#006c49] text-base">check_circle</span>
-                      <span>Katalog Menu & Rekomendasi Selera</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#006c49] text-base">check_circle</span>
-                      <span>Keranjang & Kasir Checkout Terintegrasi</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#006c49] text-base">check_circle</span>
-                      <span>Live Tracking Kurir & Voucher Promo</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4">
-                <button
-                  type="button"
-                  onClick={() => onSelectRole('Pembeli')}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-[#a33900] text-white font-bold text-sm shadow-lg shadow-[#a33900]/20 hover:bg-[#cc4900] transition-all flex items-center justify-center gap-2 group-hover:gap-3"
-                >
-                  <span>Masuk Sebagai Pembeli</span>
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Card 2: Penjual */}
-            <div
-              onClick={() => onSelectRole('Penjual')}
-              className="group relative cursor-pointer rounded-3xl bg-white p-7 sm:p-8 transition-all duration-300 border-2 border-[#dee8ff] hover:border-[#825100] shadow-sm hover:shadow-2xl flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between">
-                  <div className="w-16 h-16 rounded-2xl bg-[#ffddb8] text-[#825100] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined text-3xl">storefront</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full bg-[#ffddb8] text-[#825100] text-[11px] font-bold uppercase">
-                    Mitra Usaha
-                  </span>
-                </div>
-
-                <div className="mt-6">
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-[#111c2d] mt-1 group-hover:text-[#825100] transition-colors">
-                    Masuk Sebagai Penjual
-                  </h3>
-                  <p className="text-xs sm:text-sm text-[#5a4138] mt-2 leading-relaxed">
-                    Kelola operasional restoran, pantau antrean pesanan masuk dengan hitung mundur timer 10 menit, serta kelola stok menu, voucher, dan laporan penjualan.
-                  </p>
-
-                  <div className="mt-5 space-y-2 pt-4 border-t border-[#f0f3ff] text-xs text-[#5a4138]">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#825100] text-base">check_circle</span>
-                      <span>Antrean Pesanan Masuk (Timer 10 Menit)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#825100] text-base">check_circle</span>
-                      <span>Form Tambah & Edit Menu Makanan</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#825100] text-base">check_circle</span>
-                      <span>Kelola Voucher & Laporan Omzet Harian</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4">
-                <button
-                  type="button"
-                  onClick={() => onSelectRole('Penjual')}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-[#825100] text-white font-bold text-sm shadow-lg shadow-[#825100]/20 hover:bg-[#a36700] transition-all flex items-center justify-center gap-2 group-hover:gap-3"
-                >
-                  <span>Masuk Sebagai Penjual</span>
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          </div>
+ return (
+    <div className="min-h-screen bg-[#f8fafc] text-[#111827] flex flex-col">
+      {/* Top Announcement Bar */}
+      <div className="w-full bg-[#c24d0a] text-white py-2.5 px-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-center gap-2 text-[11px] sm:text-xs font-bold tracking-[0.14em] uppercase text-center">
+          <span className="material-symbols-outlined text-[15px] leading-none">
+            bolt
+          </span>
+          <span>MAKANDULU ECOSYSTEM • SILAKAN TENTUKAN PERAN ANDA TERLEBIH DAHULU</span>
         </div>
       </div>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-12">
+        {/* Brand & Header */}
+        <div className="max-w-2xl w-full text-center mb-10">
+          <div className="inline-flex items-center justify-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-[#c24d0a] text-white flex items-center justify-center shadow-sm">
+              <span className="material-symbols-outlined text-[22px]">
+                room_service
+              </span>
+            </div>
+            <span className="text-2xl sm:text-[26px] font-extrabold tracking-tight text-[#0f172a]">
+              Makan<span className="text-[#0f172a]">Dulu</span>
+            </span>
+          </div>
+
+          <h1 className="text-3xl sm:text-[40px] font-extrabold tracking-tight text-[#0f172a] leading-tight mb-3">
+            Pilih Peran Anda untuk Memulai
+          </h1>
+
+          <p className="text-sm sm:text-base text-[#64748b] leading-relaxed max-w-xl mx-auto">
+            Tentukan identitas akses di platform MakanDulu. Anda akan diarahkan langsung ke
+            antarmuka kerja sesuai peran yang dipilih.
+          </p>
+        </div>
+
+        {/* Role Cards Grid */}
+        <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 gap-7 items-stretch">
+          {/* Card 1: Pembeli */}
+          <section className="bg-white rounded-3xl border border-[#e2e8f0] p-7 sm:p-9 shadow-[0_12px_32px_-12px_rgba(15,23,42,0.08)] flex flex-col justify-between transition-all duration-200 hover:border-[#fdba74] hover:shadow-[0_18px_40px_-14px_rgba(194,77,10,0.14)]">
+            <div>
+              {/* Top Icon & Badge */}
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-[#fde8dc] text-[#c24d0a] flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[28px]">
+                    ramen_dining
+                  </span>
+                </div>
+
+                <span className="px-3 py-1 rounded-full bg-[#fde8dc] text-[#c24d0a] text-[11px] font-bold tracking-wider uppercase">
+                  KONSUMEN
+                </span>
+              </div>
+              
+              <h2 className="text-2xl font-extrabold text-[#0f172a] mb-3">
+                Masuk Sebagai Pembeli
+              </h2>
+
+              {/* Description */}
+              <p className="text-sm text-[#64748b] leading-relaxed mb-7">
+                Jelajahi aneka kuliner lezat, pilih makanan sesuai selera rasa, masukkan ke
+                keranjang kasir terintegrasi, dan lacak kurir di halaman Live Tracking setelah
+                pesanan dibuat.
+              </p>
+
+              <hr className="border-[#f1f5f9] mb-6" />
+
+              {/* Features List */}
+              <ul className="space-y-3.5 mb-8">
+                <li className="flex items-center gap-3 text-sm font-medium text-[#334155]">
+                  <span className="material-symbols-outlined text-[20px] text-[#16a34a] shrink-0">
+                    check_circle
+                  </span>
+                  <span>Katalog Menu &amp; Rekomendasi Selera</span>
+                </li>
+                <li className="flex items-center gap-3 text-sm font-medium text-[#334155]">
+                  <span className="material-symbols-outlined text-[20px] text-[#16a34a] shrink-0">
+                    check_circle
+                  </span>
+                  <span>Keranjang &amp; Kasir Checkout Terintegrasi</span>
+                </li>
+                <li className="flex items-center gap-3 text-sm font-medium text-[#334155]">
+                  <span className="material-symbols-outlined text-[20px] text-[#16a34a] shrink-0">
+                    check_circle
+                  </span>
+                  <span>Live Tracking Kurir (Aktif Setelah Checkout)</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Action Button */}
+            <button
+              type="button"
+              onClick={() => onSelectRole('Pembeli')}
+              className="w-full py-3.5 px-6 rounded-xl bg-[#a84300] hover:bg-[#8c3700] active:scale-[0.99] text-white font-semibold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-sm"
+            >
+              <span>Masuk Sebagai Pembeli</span>
+              <span className="material-symbols-outlined text-[20px]">
+                arrow_forward
+              </span>
+            </button>
+          </section>
+
+          {/* Card 2: Penjual */}
+          <section className="bg-white rounded-3xl border border-[#e2e8f0] p-7 sm:p-9 shadow-[0_12px_32px_-12px_rgba(15,23,42,0.08)] flex flex-col justify-between transition-all duration-200 hover:border-[#fcd34d] hover:shadow-[0_18px_40px_-14px_rgba(120,66,0,0.14)]">
+            <div>
+              {/* Top Icon & Badge */}
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-[#fef0d8] text-[#8a5300] flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[28px]">
+                    storefront
+                  </span>
+                </div>
+
+                <span className="px-3 py-1 rounded-full bg-[#fef0d8] text-[#8a5300] text-[11px] font-bold tracking-wider uppercase">
+                  MITRA USAHA
+                </span>
+              </div>
+              <h2 className="text-2xl font-extrabold text-[#0f172a] mb-3">
+                Masuk Sebagai Penjual
+              </h2>
+
+              {/* Description */}
+              <p className="text-sm text-[#64748b] leading-relaxed mb-7">
+                Kelola operasional restoran, pantau antrean pesanan masuk dengan hitung mundur
+                timer 10 menit, serta analisa omzet penjualan harian dan stok menu.
+              </p>
+
+              <hr className="border-[#f1f5f9] mb-6" />
+
+              {/* Features List */}
+              <ul className="space-y-3.5 mb-8">
+                <li className="flex items-center gap-3 text-sm font-medium text-[#334155]">
+                  <span className="material-symbols-outlined text-[20px] text-[#854d0e] shrink-0">
+                    check_circle
+                  </span>
+                  <span>Menu Antrean Pesanan (Timer 10 Menit)</span>
+                </li>
+                <li className="flex items-center gap-3 text-sm font-medium text-[#334155]">
+                  <span className="material-symbols-outlined text-[20px] text-[#854d0e] shrink-0">
+                    check_circle
+                  </span>
+                  <span>Dashboard Merchant &amp; Analitik Omzet</span>
+                </li>
+                <li className="flex items-center gap-3 text-sm font-medium text-[#334155]">
+                  <span className="material-symbols-outlined text-[20px] text-[#854d0e] shrink-0">
+                    check_circle
+                  </span>
+                  <span>Manajemen Ketersediaan Stok Menu Warung</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Action Button */}
+            <button
+              type="button"
+              onClick={() => onSelectRole('Penjual')}
+              className="w-full py-3.5 px-6 rounded-xl bg-[#7a4100] hover:bg-[#613300] active:scale-[0.99] text-white font-semibold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-sm"
+            >
+              <span>Masuk Sebagai Penjual</span>
+              <span className="material-symbols-outlined text-[20px]">
+                arrow_forward
+              </span>
+            </button>
+          </section>
+        </div>
+      </main>
     </div>
   );
 };
