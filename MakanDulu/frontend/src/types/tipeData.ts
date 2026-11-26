@@ -97,9 +97,35 @@ declare global {
   }
 }
 
+export interface OrderSuccessMeta {
+  idPesanan?: number;
+  orderNumber?: string;
+  midtransOrderId?: string;
+  statusPesanan?: string;
+  statusPembayaran?: string;
+  snapToken?: string | null;
+  batasKonfirmasiAt?: string | null;
+  catatan?: string;
+}
+
+export interface NotifikasiItem {
+  idNotifikasi: number;
+  penerimaRole: 'Pembeli' | 'Penjual';
+  idPenerima: number;
+  idPesanan?: number | null;
+  judul: string;
+  pesan: string;
+  tipe: string;
+  sudahDibaca: boolean;
+  createdAt: string;
+}
+
 export interface OrderRecord {
   id: string;
+  idPesanan?: number;
   orderNumber: string;
+  midtransOrderId?: string;
+  snapToken?: string | null;
   items: CartItem[];
   subtotal: number;
   shippingFee: number;
@@ -108,8 +134,20 @@ export interface OrderRecord {
   total: number;
   paymentMethod: PaymentMethod;
   selectedProvider?: string;
+  statusPembayaran?: string;
+  statusPesananDb?: string;
+  batasKonfirmasiAt?: string | null;
+  catatan?: string;
   address: DeliveryAddress;
-  status: 'dimasak' | 'diantar' | 'selesai' | 'dibatalkan' | 'ditolak_cod' | 'auto_batal_10mnt';
+  status:
+    | 'menunggu_pembayaran'
+    | 'menunggu_konfirmasi'
+    | 'dimasak'
+    | 'diantar'
+    | 'selesai'
+    | 'dibatalkan'
+    | 'ditolak_cod'
+    | 'auto_batal_10mnt';
   rejectionReason?: string;
   orderTime: string;
   estimatedDeliveryTime: string;

@@ -1,18 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UserProfile } from '../types';
-
-interface IncomingOrder {
-  id: string;
-  orderNumber: string;
-  customerName: string;
-  customerAddress: string;
-  items: { name: string; qty: number; modifier: string; price: number }[];
-  totalPrice: number;
-  remainingSeconds: number;
-  status: 'menunggu' | 'dimasak' | 'siap_diambil' | 'auto_batal_10mnt';
-  paymentType: string;
-  orderTime: string;
-}
+import {
+  getPesananPenjual,
+  konfirmasiPesananPenjual,
+  tandaiPesananDiantar,
+  simulasiWaktuHabis,
+  PenjualOrderItem,
+} from '../services/apiClient';
 
 interface PesananPenjualProps {
   showToast: (title: string, message: string, isError?: boolean) => void;
@@ -20,86 +14,77 @@ interface PesananPenjualProps {
   userProfile?: UserProfile | null;
 }
 
+const mapStatusUi = (
+  statusDb: string
+): 'menunggu' | 'dimasak' | 'siap_diantar' | 'selesai' | 'auto_batal_10mnt' => {
+  const s = String(statusDb || '').toLowerCase();
+  if (s.includes('batal')) return 'auto_batal_10mnt';
+  if (s.includes('selesai')) return 'selesai';
+  if (s.includes('antar')) return 'siap_diantar';
+  if (s.includes('sedang disiapkan') || s.includes('diterima') || s.includes('disiapkan')) {
+    return 'dimasak';
+  }
+  return 'menunggu';
+};
+
 const PesananPenjual: React.FC<PesananPenjualProps> = ({
   showToast,
   onNavigateToDashboard,
-  userProfile
+  userProfile,
 }) => {
   const [activeFilter, setActiveFilter] = useState<'semua' | 'menunggu' | 'dimasak' | 'siap' | 'batal'>('semua');
-  const [orders, setOrders] = useState<IncomingOrder[]>([
-    {
-      id: 'ord-m-1',
-      orderNumber: 'MKD-998214',
-      customerName: 'Siti Rahmawati',
-      customerAddress: 'Jl. Sudirman No. 42 (Gedung B Lt. 3), Kebayoran Baru',
-      items: [
-        { name: 'Nasi Bebek Sinjay Madura Krispi', qty: 2, modifier: 'Pedas Sedang • Sambal Terpisah', price: 38000 },
-        { name: 'Es Jeruk Nipis Madu Selasih', qty: 1, modifier: 'Kurang Manis • Es Sedang', price: 12000 }
-      ],
-      totalPrice: 88000,
-      remainingSeconds: 490, // ~8 min
-      status: 'dimasak',
-      paymentType: 'E-Wallet GoPay (Lunas)',
-      orderTime: '12:45 WIB'
-    },
-    {
-      id: 'ord-m-2',
-      orderNumber: 'MKD-998215',
-      customerName: 'Dimas Prasetyo',
-      customerAddress: 'Jl. Senopati No. 18, Jakarta Selatan',
-      items: [
-        { name: 'Ayam Geprek Sambal Korek Level 5', qty: 1, modifier: 'Ekstrem Pedas Level 5', price: 26000 }
-      ],
-      totalPrice: 26000,
-      remainingSeconds: 580, // ~9 min 40 sec
-      status: 'menunggu',
-      paymentType: 'COD (Bayar Tunai)',
-      orderTime: '12:51 WIB'
-    },
-    {
-      id: 'ord-m-3',
-      orderNumber: 'MKD-998216',
-      customerName: 'Bunga Citra',
-      customerAddress: 'Apartemen Sudirman Park Tower A Lt. 12',
-      items: [
-        { name: 'Nasi Bakar Cumi Cabe Ijo', qty: 2, modifier: 'Ekstra Kemangi Harum', price: 32000 }
-      ],
-      totalPrice: 64000,
-      remainingSeconds: 310,
-      status: 'siap_diambil',
-      paymentType: 'Virtual Account BCA (Lunas)',
-      orderTime: '12:35 WIB'
-    }
-  ]);
+  const [orders, setOrders] = useState<PenjualOrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
-  // Real-time 10-minute countdown with automatic rejection when time expires
+  const muatPesanan = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
+    try {
+      const res = await getPesananPenjual(userProfile?.id);
+      if (res.success && Array.isArray(res.data)) {
+        setOrders(res.data);
+      }
+    } catch (err) {
+      if (isInitial) {
+        console.warn('[HalamanPesananPenjual] Gagal memuat pesanan:', err);
+      }
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  }, [userProfile?.id]);
+
+  // Sinkronisasi berkala tiap 4 detik agar pesanan Non-COD yang baru selesai dibayar langsung masuk
+  useEffect(() => {
+    muatPesanan(true);
+    const poll = setInterval(() => muatPesanan(false), 4000);
+    return () => clearInterval(poll);
+  }, [muatPesanan]);
+
+  // Countdown hitung mundur 10 menit tersinkronisasi dengan batasKonfirmasiAt database
   useEffect(() => {
     const timer = setInterval(() => {
+      let adaYangHabis = false;
       setOrders((prev) =>
         prev.map((order) => {
-          if (order.status === 'menunggu') {
-            const nextSecs = order.remainingSeconds - 1;
-            if (nextSecs <= 0) {
-              // Otomatis ditolak oleh sistem karena penjual tidak konfirmasi dalam 10 menit
-              showToast(
-                'Pesanan Otomatis Dibatalkan',
-                `Pesanan #${order.orderNumber} otomatis dibatalkan sistem karena batas 10 menit berakhir tanpa konfirmasi penjual.`,
-                true
-              );
-              return {
-                ...order,
-                remainingSeconds: 0,
-                status: 'auto_batal_10mnt'
-              };
+          if (mapStatusUi(order.statusPesanan) === 'menunggu') {
+            const nextSecs = order.batasKonfirmasiAt
+              ? Math.max(0, Math.floor((new Date(order.batasKonfirmasiAt).getTime() - Date.now()) / 1000))
+              : Math.max(0, order.remainingSeconds - 1);
+
+            if (nextSecs <= 0 && order.remainingSeconds > 0) {
+              adaYangHabis = true;
             }
             return { ...order, remainingSeconds: nextSecs };
           }
           return order;
         })
       );
+      if (adaYangHabis) {
+        muatPesanan(false);
+      }
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [muatPesanan]);
 
   const formatTimer = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -107,48 +92,93 @@ const PesananPenjual: React.FC<PesananPenjualProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Penjual can ONLY confirm the order, NO manual reject button!
-  const handleConfirmOrder = (id: string) => {
-    setOrders((prev) =>
-      prev.map((ord) => (ord.id === id ? { ...ord, status: 'dimasak' } : ord))
-    );
-    showToast('Pesanan Dikonfirmasi!', 'Pesanan berhasil diterima dan diteruskan ke dapur untuk dimasak.');
+  /**
+   * Main Flow Sequence Diagram:
+   * Penjual -> halaman_dashboard_penjual: Memeriksa rincian pesanan dan menekan tombol "Terima Pesanan"
+   * -> pesanan_controller: konfirmasi_pesanan(idPesanan)
+   * -> Pesanan: Mengubah status pesanan menjadi "Sedang Disiapkan"
+   * -> timer_controller: stop_timer(idPesanan)
+   * -> layanan_notifikasi: Kirim notifikasi pembaruan status pesanan
+   */
+  const handleConfirmOrder = async (ord: PenjualOrderItem) => {
+    setProcessingId(ord.idPesanan);
+    try {
+      const res = await konfirmasiPesananPenjual(ord.idPesanan);
+      showToast(
+        'Pesanan Diterima!',
+        res.message || `Pesanan #${ord.orderNumber} kini berstatus "Sedang Disiapkan" & timer dihentikan.`
+      );
+      await muatPesanan(false);
+    } catch (err) {
+      showToast(
+        'Gagal Konfirmasi Pesanan',
+        err instanceof Error ? err.message : 'Terjadi kesalahan saat mengonfirmasi pesanan.',
+        true
+      );
+      await muatPesanan(false);
+    } finally {
+      setProcessingId(null);
+    }
   };
 
-  const handleReadyForCourier = (id: string) => {
-    setOrders((prev) =>
-      prev.map((ord) => (ord.id === id ? { ...ord, status: 'siap_diambil' } : ord))
-    );
-    showToast('Makanan Siap!', 'Notifikasi dikirim ke kurir pengantar untuk segera melakukan serah terima.');
+  const handleReadyForCourier = async (ord: PenjualOrderItem) => {
+    setProcessingId(ord.idPesanan);
+    try {
+      const res = await tandaiPesananDiantar(ord.idPesanan);
+      showToast(
+        'Makanan Siap Diantar!',
+        res.message || 'Notifikasi dikirim ke pembeli & kurir untuk serah terima.'
+      );
+      await muatPesanan(false);
+    } catch (err) {
+      showToast(
+        'Gagal Memperbarui Status',
+        err instanceof Error ? err.message : 'Terjadi kesalahan.',
+        true
+      );
+    } finally {
+      setProcessingId(null);
+    }
   };
 
-  // Simulation tool to instantly test auto-cancellation after 10 min
-  const simulateAutoCancelTimer = (id: string) => {
-    setOrders((prev) =>
-      prev.map((ord) =>
-        ord.id === id
-          ? {
-              ...ord,
-              remainingSeconds: 0,
-              status: 'auto_batal_10mnt'
-            }
-          : ord
-      )
-    );
-    showToast(
-      'Simulasi Auto-Batal 10 Mnt',
-      'Waktu 10 menit habis tanpa konfirmasi penjual. Sistem otomatis menolak pesanan!',
-      true
-    );
+  /**
+   * Alternative Flow #1 Auto Cancel:
+   * Simulasi timer_controller mengirim sinyal "Waktu habis" -> pesanan_controller -> "Dibatalkan Otomatis"
+   */
+  const simulateAutoCancelTimer = async (ord: PenjualOrderItem) => {
+    setProcessingId(ord.idPesanan);
+    try {
+      await simulasiWaktuHabis(ord.idPesanan);
+      showToast(
+        'Dibatalkan Otomatis (Waktu Habis)',
+        `Pesanan #${ord.orderNumber} dibatalkan otomatis & notifikasi dikirim ke pembeli serta penjual.`,
+        true
+      );
+      await muatPesanan(false);
+    } catch (err) {
+      showToast(
+        'Simulasi Gagal',
+        err instanceof Error ? err.message : 'Gagal menjalankan simulasi waktu habis.',
+        true
+      );
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const filteredOrders = orders.filter((ord) => {
-    if (activeFilter === 'menunggu') return ord.status === 'menunggu';
-    if (activeFilter === 'dimasak') return ord.status === 'dimasak';
-    if (activeFilter === 'siap') return ord.status === 'siap_diambil';
-    if (activeFilter === 'batal') return ord.status === 'auto_batal_10mnt';
+    const uiStatus = mapStatusUi(ord.statusPesanan);
+    if (activeFilter === 'menunggu') return uiStatus === 'menunggu';
+    if (activeFilter === 'dimasak') return uiStatus === 'dimasak';
+    if (activeFilter === 'siap') return uiStatus === 'siap_diantar' || uiStatus === 'selesai';
+    if (activeFilter === 'batal') return uiStatus === 'auto_batal_10mnt';
     return true;
   });
+
+  const countMenunggu = orders.filter((o) => mapStatusUi(o.statusPesanan) === 'menunggu').length;
+  const countDimasak = orders.filter((o) => mapStatusUi(o.statusPesanan) === 'dimasak').length;
+  const countSiap = orders.filter((o) => ['siap_diantar', 'selesai'].includes(mapStatusUi(o.statusPesanan))).length;
+  const countBatal = orders.filter((o) => mapStatusUi(o.statusPesanan) === 'auto_batal_10mnt').length;
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-8">
@@ -156,31 +186,35 @@ const PesananPenjual: React.FC<PesananPenjualProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-[#dee8ff] gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#ffddb8] text-[#825100] text-xs font-bold uppercase">
-              Mode Penjual (Merchant)
-            </span>
-            <span className="text-xs text-[#006c49] font-bold bg-[#6ffbbe]/40 px-2.5 py-0.5 rounded-full">
-              Sistem Otomatis 10 Menit Aktif
-            </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#111c2d] tracking-tight">
-            Menu Pesanan {userProfile?.storeName || 'Resto'}
+            Pesanan Masuk {userProfile?.storeName || 'Resto'}
           </h1>
           <p className="text-xs sm:text-sm text-[#5a4138] mt-1">
-            Kelola antrean pesanan masuk. <strong>Penjual tidak dapat menolak pesanan secara manual</strong>. Konfirmasi sebelum timer 10 menit habis, atau sistem akan otomatis membatalkan pesanan.
+            Pesanan Non-COD hanya masuk setelah pembayaran berhasil diverifikasi. Segera periksa rincian dan klik <strong>"Terima Pesanan"</strong> sebelum timer 10 menit berakhir.
           </p>
         </div>
 
-        {onNavigateToDashboard && (
+        <div className="flex items-center gap-2 self-start md:self-auto">
           <button
             type="button"
-            onClick={onNavigateToDashboard}
-            className="px-4 py-2.5 bg-[#825100] hover:bg-[#a36700] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs self-start md:self-auto"
+            onClick={() => muatPesanan(false)}
+            className="px-3.5 py-2.5 bg-white hover:bg-[#f0f3ff] text-[#111c2d] border border-[#dee8ff] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-sm">monitoring</span>
-            <span>Dashboard & Kelola Stok</span>
+            <span className="material-symbols-outlined text-sm">refresh</span>
+            <span>Muat Ulang</span>
           </button>
-        )}
+          {onNavigateToDashboard && (
+            <button
+              type="button"
+              onClick={onNavigateToDashboard}
+              className="px-4 py-2.5 bg-[#825100] hover:bg-[#a36700] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs"
+            >
+              <span className="material-symbols-outlined text-sm">monitoring</span>
+              <span>Dashboard Merchant</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Rules Notice Banner */}
@@ -189,7 +223,7 @@ const PesananPenjual: React.FC<PesananPenjualProps> = ({
           info
         </span>
         <div className="text-xs text-[#5a4138] leading-relaxed">
-          <strong className="text-[#111c2d]">Kebijakan Operasional Pesanan:</strong> Penjual tidak memiliki tombol tolak manual. Sistem timer 10 menit berjalan secara otomatis. Jika penjual tidak menekan tombol <strong>"Konfirmasi & Siapkan"</strong> sampai hitung mundur 0:00, sistem secara otomatis menolak pesanan pelanggan demi menjaga kepastian layanan.
+          <strong className="text-[#111c2d]">Catatan:</strong> Penjual tidak memiliki tombol tolak manual. Saat pesanan masuk, klik <strong>"Terima Pesanan"</strong> untuk mengubah status menjadi <strong>"Sedang Disiapkan"</strong> dan menghentikan timer otomatis. Jika waktu 10 menit habis tanpa konfirmasi, sistem membatalkan pesanan menjadi <strong>"Dibatalkan Otomatis"</strong> dan mengirim notifikasi ke pembeli serta penjual.
         </div>
       </div>
 
@@ -197,10 +231,10 @@ const PesananPenjual: React.FC<PesananPenjualProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto my-4 pb-1">
         {[
           { id: 'semua', label: `Semua Pesanan (${orders.length})` },
-          { id: 'menunggu', label: `Perlu Konfirmasi (${orders.filter((o) => o.status === 'menunggu').length})` },
-          { id: 'dimasak', label: `Sedang Dimasak (${orders.filter((o) => o.status === 'dimasak').length})` },
-          { id: 'siap', label: `Siap Diambil Kurir (${orders.filter((o) => o.status === 'siap_diambil').length})` },
-          { id: 'batal', label: `Batal Otomatis 10 Mnt (${orders.filter((o) => o.status === 'auto_batal_10mnt').length})` }
+          { id: 'menunggu', label: `Perlu Konfirmasi (${countMenunggu})` },
+          { id: 'dimasak', label: `Sedang Disiapkan (${countDimasak})` },
+          { id: 'siap', label: `Diantar / Selesai (${countSiap})` },
+          { id: 'batal', label: `Dibatalkan Otomatis (${countBatal})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -217,135 +251,186 @@ const PesananPenjual: React.FC<PesananPenjualProps> = ({
       </div>
 
       {/* Orders List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredOrders.map((ord) => (
-          <div
-            key={ord.id}
-            className={`rounded-3xl p-6 border transition-all shadow-sm flex flex-col justify-between ${
-              ord.status === 'auto_batal_10mnt'
-                ? 'bg-[#f0f3ff] border-[#dee8ff] opacity-80'
-                : 'bg-white border-[#dee8ff] hover:shadow-md'
-            }`}
-          >
-            <div>
-              {/* Order Top Bar */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#f0f3ff]">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-extrabold text-[#111c2d] bg-[#f0f3ff] px-2 py-0.5 rounded-lg border border-[#dee8ff]">
-                    #{ord.orderNumber}
-                  </span>
-                  <span className="text-[11px] text-[#5a4138]">{ord.orderTime}</span>
+      {loading ? (
+        <div className="bg-white rounded-3xl p-12 text-center border border-[#dee8ff] space-y-3">
+          <span className="material-symbols-outlined text-4xl text-[#825100] animate-spin">progress_activity</span>
+          <p className="text-xs font-bold text-[#5a4138]">Memuat antrean pesanan masuk dari database...</p>
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center border border-[#dee8ff] space-y-3">
+          <div className="w-16 h-16 rounded-3xl bg-[#f0f3ff] text-[#5a4138] flex items-center justify-center mx-auto">
+            <span className="material-symbols-outlined text-3xl">receipt_long</span>
+          </div>
+          <h3 className="text-base font-extrabold text-[#111c2d]">Belum Ada Pesanan pada Kategori Ini</h3>
+          <p className="text-xs text-[#5a4138] max-w-md mx-auto">
+            Pesanan COD maupun Non-COD yang sudah selesai dibayar oleh pembeli akan otomatis tampil di sini.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredOrders.map((ord) => {
+            const uiStatus = mapStatusUi(ord.statusPesanan);
+            return (
+              <div
+                key={ord.id}
+                className={`rounded-3xl p-6 border transition-all shadow-sm flex flex-col justify-between ${
+                  uiStatus === 'auto_batal_10mnt'
+                    ? 'bg-[#f0f3ff] border-[#dee8ff] opacity-80'
+                    : 'bg-white border-[#dee8ff] hover:shadow-md'
+                }`}
+              >
+                <div>
+                  {/* Order Top Bar */}
+                  <div className="flex items-center justify-between pb-3 border-b border-[#f0f3ff] gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-extrabold text-[#111c2d] bg-[#f0f3ff] px-2 py-0.5 rounded-lg border border-[#dee8ff]">
+                        #{ord.orderNumber}
+                      </span>
+                      <span className="text-[11px] text-[#5a4138]">{ord.orderTime}</span>
+                    </div>
+
+                    {/* Status Badges */}
+                    {uiStatus === 'menunggu' && (
+                      <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#ffdad6] text-[#ba1a1a] text-[11px] font-bold animate-pulse">
+                        <span className="material-symbols-outlined text-xs">alarm</span>
+                        <span>Sisa: {formatTimer(ord.remainingSeconds)}</span>
+                      </div>
+                    )}
+                    {uiStatus === 'dimasak' && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#ffddb8] text-[#825100] text-[11px] font-bold">
+                        Sedang Disiapkan
+                      </span>
+                    )}
+                    {uiStatus === 'siap_diantar' && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#6ffbbe] text-[#002113] text-[11px] font-bold">
+                        Pesanan Diantar
+                      </span>
+                    )}
+                    {uiStatus === 'selesai' && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#6ffbbe]/60 text-[#004d33] text-[11px] font-bold">
+                        Pesanan Selesai
+                      </span>
+                    )}
+                    {uiStatus === 'auto_batal_10mnt' && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#ffdad6] text-[#ba1a1a] text-[11px] font-bold">
+                        Dibatalkan Otomatis
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Customer Info */}
+                  <div className="py-3">
+                    <span className="text-xs font-bold text-[#111c2d] block">{ord.customerName}</span>
+                    <span className="text-[11px] text-[#5a4138] line-clamp-2 mt-0.5">{ord.customerAddress}</span>
+                    {ord.catatan && (
+                      <span className="block text-[11px] text-[#825100] font-semibold mt-1">
+                        Catatan: "{ord.catatan}"
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Ordered Menu Items */}
+                  <div className="bg-[#f0f3ff] p-3 rounded-2xl border border-[#dee8ff] space-y-2">
+                    {ord.items.map((it, idx) => (
+                      <div key={idx} className="flex justify-between items-start text-xs">
+                        <div>
+                          <span className="font-bold text-[#111c2d]">{it.qty}x {it.name}</span>
+                          {it.modifier && (
+                            <span className="block text-[11px] text-[#a33900]">{it.modifier}</span>
+                          )}
+                        </div>
+                        <span className="font-semibold text-[#111c2d]">
+                          Rp {(it.price * it.qty).toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Total & Payment */}
+                  <div className="pt-3 flex justify-between items-center text-xs gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                        ord.isCOD
+                          ? 'bg-[#ffddb8] text-[#825100]'
+                          : 'bg-[#6ffbbe]/40 text-[#004d33]'
+                      }`}
+                    >
+                      {ord.paymentType}
+                    </span>
+                    <span className="text-sm font-extrabold text-[#a33900] shrink-0">
+                      Rp {ord.totalPrice.toLocaleString('id-ID')}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Status Badges */}
-                {ord.status === 'menunggu' && (
-                  <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#ffdad6] text-[#ba1a1a] text-[11px] font-bold animate-pulse">
-                    <span className="material-symbols-outlined text-xs">alarm</span>
-                    <span>Sisa: {formatTimer(ord.remainingSeconds)}</span>
-                  </div>
-                )}
-                {ord.status === 'dimasak' && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#ffddb8] text-[#825100] text-[11px] font-bold">
-                    Sedang Dimasak
-                  </span>
-                )}
-                {ord.status === 'siap_diambil' && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#6ffbbe] text-[#002113] text-[11px] font-bold">
-                    Siap Diambil Kurir
-                  </span>
-                )}
-                {ord.status === 'auto_batal_10mnt' && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#ffdad6] text-[#ba1a1a] text-[11px] font-bold">
-                    Otomatis Dibatalkan Sistem
-                  </span>
-                )}
-              </div>
+                {/* Action Buttons */}
+                <div className="pt-4 mt-3 border-t border-[#f0f3ff]">
+                  {uiStatus === 'menunggu' && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        disabled={processingId === ord.idPesanan}
+                        onClick={() => handleConfirmOrder(ord)}
+                        className="w-full py-3 rounded-xl bg-[#006c49] hover:bg-[#005236] text-white text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
+                      >
+                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                        <span>
+                          {processingId === ord.idPesanan ? 'Mengonfirmasi...' : 'Terima Pesanan'}
+                        </span>
+                      </button>
 
-              {/* Customer Info */}
-              <div className="py-3">
-                <span className="text-xs font-bold text-[#111c2d] block">{ord.customerName}</span>
-                <span className="text-[11px] text-[#5a4138] line-clamp-1 mt-0.5">{ord.customerAddress}</span>
-              </div>
-
-              {/* Ordered Menu Items */}
-              <div className="bg-[#f0f3ff] p-3 rounded-2xl border border-[#dee8ff] space-y-2">
-                {ord.items.map((it, idx) => (
-                  <div key={idx} className="flex justify-between items-start text-xs">
-                    <div>
-                      <span className="font-bold text-[#111c2d]">{it.qty}x {it.name}</span>
-                      <span className="block text-[11px] text-[#a33900]">{it.modifier}</span>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-[#5a4138]">
+                          Auto-batal jika 10 mnt habis
+                        </span>
+                        <button
+                          type="button"
+                          disabled={processingId === ord.idPesanan}
+                          onClick={() => simulateAutoCancelTimer(ord)}
+                          className="text-[10px] text-[#ba1a1a] font-bold hover:underline disabled:opacity-50"
+                        >
+                          Uji Simulasi Auto-Batal
+                        </button>
+                      </div>
                     </div>
-                    <span className="font-semibold text-[#111c2d]">
-                      Rp {(it.price * it.qty).toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  )}
 
-              {/* Total & Payment */}
-              <div className="pt-3 flex justify-between items-center text-xs">
-                <span className="text-[#5a4138]">{ord.paymentType}</span>
-                <span className="text-sm font-extrabold text-[#a33900]">
-                  Rp {ord.totalPrice.toLocaleString('id-ID')}
-                </span>
-              </div>
-            </div>
-
-            {/* Action Buttons - NO MANUAL REJECT BUTTON */}
-            <div className="pt-4 mt-3 border-t border-[#f0f3ff]">
-              {ord.status === 'menunggu' && (
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => handleConfirmOrder(ord.id)}
-                    className="w-full py-3 rounded-xl bg-[#a33900] hover:bg-[#cc4900] text-white text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <span className="material-symbols-outlined text-sm">soup_kitchen</span>
-                    <span>Konfirmasi & Siapkan Pesanan</span>
-                  </button>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[10px] text-[#5a4138]">
-                      Auto-batal jika 10 mnt habis
-                    </span>
+                  {uiStatus === 'dimasak' && (
                     <button
                       type="button"
-                      onClick={() => simulateAutoCancelTimer(ord.id)}
-                      className="text-[10px] text-[#ba1a1a] font-bold hover:underline"
+                      disabled={processingId === ord.idPesanan}
+                      onClick={() => handleReadyForCourier(ord)}
+                      className="w-full py-2.5 rounded-xl bg-[#a33900] hover:bg-[#cc4900] text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
                     >
-                      Uji Simulasi Auto-Batal
+                      <span className="material-symbols-outlined text-sm">moped</span>
+                      <span>Makanan Selesai Dimasak (Panggil Kurir)</span>
                     </button>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {ord.status === 'dimasak' && (
-                <button
-                  type="button"
-                  onClick={() => handleReadyForCourier(ord.id)}
-                  className="w-full py-2.5 rounded-xl bg-[#006c49] hover:bg-[#005236] text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-sm">moped</span>
-                  <span>Makanan Selesai Dimasak (Panggil Kurir)</span>
-                </button>
-              )}
+                  {uiStatus === 'siap_diantar' && (
+                    <div className="w-full py-2.5 rounded-xl bg-[#6ffbbe]/30 text-[#006c49] text-xs font-bold text-center border border-[#6cf8bb]">
+                      Kurir sedang mengantar pesanan ke pembeli
+                    </div>
+                  )}
 
-              {ord.status === 'siap_diambil' && (
-                <div className="w-full py-2.5 rounded-xl bg-[#6ffbbe]/30 text-[#006c49] text-xs font-bold text-center border border-[#6cf8bb]">
-                  Kurir sedang dalam perjalanan menuju resto
-                </div>
-              )}
+                  {uiStatus === 'selesai' && (
+                    <div className="w-full py-2.5 rounded-xl bg-[#6ffbbe]/20 text-[#004d33] text-xs font-bold text-center border border-[#6cf8bb]">
+                      Pesanan telah diterima pembeli & selesai
+                    </div>
+                  )}
 
-              {ord.status === 'auto_batal_10mnt' && (
-                <div className="w-full p-2.5 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs text-center border border-[#ffb4ab]">
-                  <p className="font-bold">Pesanan Ditolak Otomatis oleh Sistem</p>
-                  <p className="text-[10px] mt-0.5">Batas 10 menit berakhir tanpa konfirmasi penjual.</p>
+                  {uiStatus === 'auto_batal_10mnt' && (
+                    <div className="w-full p-2.5 rounded-xl bg-[#ffdad6] text-[#ba1a1a] text-xs text-center border border-[#ffb4ab]">
+                      <p className="font-bold">Dibatalkan Otomatis oleh Sistem</p>
+                      <p className="text-[10px] mt-0.5">Batas 10 menit berakhir tanpa konfirmasi penjual.</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

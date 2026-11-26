@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { CartItem, DeliveryAddress, PaymentMethod, EWalletProvider, BankProvider, Voucher } from '../types';
+import { CartItem, DeliveryAddress, PaymentMethod, EWalletProvider, BankProvider, Voucher, OrderSuccessMeta } from '../types';
 import { AVAILABLE_VOUCHERS } from '../data/dataMock';
 import { ModalVoucher } from '../components/ModalVoucher';
-import { buatPesanan, konfirmasiPembayaranSelesai } from '../services/apiClient';
+import { jalankanCheckoutDanPembayaran } from '../utils/pembayaranMidtrans';
 
 interface KeranjangPembeliProps {
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   currentAddress: DeliveryAddress;
   onOpenAddressModal: () => void;
-  onOrderSuccess: (items: CartItem[], total: number, paymentMethod: PaymentMethod, selectedProvider?: string) => void;
+  onOrderSuccess: (items: CartItem[], total: number, paymentMethod: PaymentMethod, selectedProvider?: string, meta?: OrderSuccessMeta) => void;
   onNavigateToCatalog: () => void;
   onOpenStoreProfile?: (storeName: string) => void;
   showToast: (title: string, message: string, isError?: boolean) => void;
@@ -111,74 +111,28 @@ export const KeranjangPembeli: React.FC<KeranjangPembeliProps> = ({
     setIsSubmittingOrder(true);
 
     try {
-      // --- LANGKAH 10–26: Panggil pemesanan_controller di backend & inisialisasi Midtrans Snap ---
-      const response = await buatPesanan({
-        items: cart.map((c) => ({
-          idMenu: c.menuId || c.id,
-          name: c.name,
-          price: c.price,
-          qty: c.qty,
-        })),
-        alamatPengantaran: `${currentAddress.street}, ${currentAddress.details}`,
-        kodeVoucher: appliedVoucher?.code,
-        metodePembayaran: selectedPayment === 'cod' ? 'COD' : provider,
-        ongkir: shippingFee + serviceFee,
-        catatan: customerNotes,
+      await jalankanCheckoutDanPembayaran({
+        payload: {
+          items: cart.map((c) => ({
+            idMenu: c.menuId || c.id,
+            name: c.name,
+            price: c.price,
+            qty: c.qty,
+          })),
+          alamatPengantaran: `${currentAddress.street}, ${currentAddress.details}`,
+          kodeVoucher: appliedVoucher?.code,
+          metodePembayaran: selectedPayment === 'cod' ? 'COD' : provider,
+          ongkir: shippingFee + serviceFee,
+          catatan: customerNotes,
+        },
+        cart,
+        totalPayment,
+        paymentMethod: selectedPayment,
+        providerLabel: provider,
+        onOrderSuccess,
+        onFinishUi: () => setIsSubmittingOrder(false),
+        showToast,
       });
-
-      const { idPesanan, snapToken, redirectUrl } = response.data;
-
-      // Jika metode COD atau tidak ada token snap
-      if (selectedPayment === 'cod' || !snapToken) {
-        setIsSubmittingOrder(false);
-        onOrderSuccess(cart, totalPayment, selectedPayment, provider);
-        showToast(
-          'Pesanan COD Berhasil Dibuat!',
-          'Pesanan Anda langsung diteruskan ke dapur resto mitra MakanDulu.'
-        );
-        return;
-      }
-
-      // --- LANGKAH 27–34: Buka Popup Midtrans Snap (halaman_pembayaran) ---
-      if (typeof window !== 'undefined' && window.snap) {
-        window.snap.pay(snapToken, {
-          onSuccess: async (result: unknown) => {
-            try {
-              await konfirmasiPembayaranSelesai(idPesanan, result);
-            } catch (err) {
-              console.error('Gagal konfirmasi status pembayaran ke backend:', err);
-            }
-            setIsSubmittingOrder(false);
-            onOrderSuccess(cart, totalPayment, selectedPayment, provider);
-            showToast(
-              'Pembayaran Berhasil Diverifikasi!',
-              'Midtrans mengonfirmasi pembayaran Anda. Pesanan langsung masuk dapur.'
-            );
-          },
-          onPending: () => {
-            setIsSubmittingOrder(false);
-            onOrderSuccess(cart, totalPayment, selectedPayment, provider);
-            showToast(
-              'Menunggu Pembayaran',
-              'Silakan selesaikan pembayaran sesuai instruksi Midtrans.'
-            );
-          },
-          onError: () => {
-            setIsSubmittingOrder(false);
-            showToast('Pembayaran Gagal', 'Transaksi Midtrans dibatalkan atau gagal diproses.', true);
-          },
-          onClose: () => {
-            setIsSubmittingOrder(false);
-            showToast('Jendela Pembayaran Ditutup', 'Anda dapat melanjutkan pembayaran kapan saja.');
-          },
-        });
-      } else if (redirectUrl) {
-        window.location.href = redirectUrl;
-      } else {
-        setIsSubmittingOrder(false);
-        onOrderSuccess(cart, totalPayment, selectedPayment, provider);
-        showToast('Pesanan Diproses', 'Transaksi berhasil dicatat ke sistem.');
-      }
     } catch (err) {
       setIsSubmittingOrder(false);
       showToast(

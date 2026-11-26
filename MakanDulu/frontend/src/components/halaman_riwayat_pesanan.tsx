@@ -35,15 +35,11 @@ const HalamanRiwayatPesanan: React.FC<HalamanRiwayatPesananProps> = ({
         setDaftarRiwayat(res.data);
       } else if (orderHistory.length > 0) {
         setDaftarRiwayat(orderHistory);
-      } else {
-        setDaftarRiwayat(fallbackMockOrders);
       }
     } catch (err) {
       console.warn('[HalamanRiwayatPesanan] Gagal memuat dari API, menggunakan data lokal:', err);
       if (orderHistory.length > 0) {
         setDaftarRiwayat(orderHistory);
-      } else {
-        setDaftarRiwayat(fallbackMockOrders);
       }
     } finally {
       setSedangMemuat(false);
@@ -262,6 +258,9 @@ const HalamanRiwayatPesanan: React.FC<HalamanRiwayatPesananProps> = ({
                       className={`px-3 py-1 rounded-full text-xs font-bold ${
                         isSelesai
                           ? 'bg-[#6ffbbe]/30 text-[#004d33]'
+                          : String(ord.status || '').toLowerCase() === 'batal' ||
+                            String(ord.statusPesananDb || '').toLowerCase().includes('batal')
+                          ? 'bg-[#ffdad6] text-[#ba1a1a]'
                           : 'bg-[#ffddb8] text-[#825100]'
                       }`}
                     >
@@ -409,68 +408,6 @@ const HalamanRiwayatPesanan: React.FC<HalamanRiwayatPesananProps> = ({
   );
 };
 
-// Data cadangan jika backend offline atau belum ada riwayat
-const fallbackMockOrders = [
-  {
-    id: 'ord-hist-6',
-    idPesanan: 6,
-    orderNumber: 'MKD-00006',
-    items: [
-      {
-        id: 'c1',
-        menuId: 'menu-2',
-        name: 'Ayam Geprek Spesial Sambal Korek',
-        price: 20000,
-        qty: 2,
-        sublabel: 'Level 3 Pedas Nampol',
-        restaurant: 'Ayam Geprek Juara',
-        imageUrl: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=600&q=80'
-      }
-    ],
-    subtotal: 40000,
-    shippingFee: 10000,
-    serviceFee: 2000,
-    discount: 0,
-    total: 40000,
-    paymentMethod: 'midtrans',
-    status: 'selesai',
-    orderTime: '23 November 2026, 14:10 WIB',
-    restaurant: 'Ayam Geprek Juara',
-    review: null // Belum diulas, tombol Beri Ulasan akan aktif
-  },
-  {
-    id: 'ord-hist-1',
-    idPesanan: 1,
-    orderNumber: 'MKD-00001',
-    items: [
-      {
-        id: 'c2',
-        menuId: 'menu-1',
-        name: 'Nasi Goreng Spesial Cak Min',
-        price: 25000,
-        qty: 1,
-        sublabel: 'Pedas Sedang • Telur Ceplok',
-        restaurant: 'Nasgor Cak Min',
-        imageUrl: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=600&q=80'
-      }
-    ],
-    subtotal: 25000,
-    shippingFee: 10000,
-    serviceFee: 2000,
-    discount: 0,
-    total: 25000,
-    paymentMethod: 'gopay',
-    status: 'selesai',
-    orderTime: '27 Oktober 2026, 16:23 WIB',
-    restaurant: 'Nasgor Cak Min',
-    review: {
-      idUlasan: 1,
-      rating: 5,
-      komentar: 'Enak banget nasi gorengnya! Porsinya banyak dan bumbunya sedap gurih.',
-      fotoUlasan: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=600&q=80',
-      tanggalUlasan: '2026-10-27T09:23:07.000Z'
-    }
-  }
-];
+
 
 export default HalamanRiwayatPesanan;

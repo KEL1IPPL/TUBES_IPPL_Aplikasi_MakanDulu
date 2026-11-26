@@ -22,9 +22,11 @@ const preferenceRoutes = require('./routes/halaman_preferensi_makanan');
 const ocrRoutes        = require('./routes/pembaca_foto');       // ← OCR dokumen legalitas
 const pemesananRoutes  = require('./routes/pemesanan_routes');   // ← Pemesanan & Checkout
 const pembayaranRoutes = require('./routes/pembayaran_routes');  // ← Midtrans Payment Gateway
+const pesananRoutes    = require('./routes/pesanan_routes');     // ← Konfirmasi Penjual, Timer & Notifikasi
 const keranjangRoutes  = require('./routes/keranjang_routes');   // ← Keranjang Pembeli
 const ulasanRoutes     = require('./routes/ulasan_routes');      // ← Ulasan & Rating Pesanan
 const { verifikasiMailer } = require('./services/mailtrap');
+const { pulihkanTimerSaatStartup } = require('./controller/timer_controller');
 
 if (!process.env.JWT_SECRET) {
     throw new Error('Konfigurasi JWT_SECRET belum diatur pada file .env.');
@@ -64,6 +66,7 @@ app.use('/api/katalog',                   katalogRoutes);
 app.use('/api/halaman-preferensi-makanan', preferenceRoutes);
 app.use('/api/pemesanan',                  pemesananRoutes);
 app.use('/api/pembayaran',                 pembayaranRoutes);
+app.use('/api/pesanan',                    pesananRoutes);
 app.use('/api/keranjang',                  keranjangRoutes);
 app.use('/api/ulasan',                     ulasanRoutes);
 
@@ -81,6 +84,7 @@ app.use((req, res) => {
 if (require.main === module) {
   app.listen(PORT, async () => {
     console.log(`Backend berjalan di http://localhost:${PORT}`);
+    await pulihkanTimerSaatStartup();
     try {
       await verifikasiMailer();
     } catch (error) {

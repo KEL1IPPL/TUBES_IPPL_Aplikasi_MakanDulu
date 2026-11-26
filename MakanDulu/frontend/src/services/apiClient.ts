@@ -1,4 +1,4 @@
-import { UserProfile, UserPreferences, MenuItem, StoreProfile } from '../types';
+import { UserProfile, UserPreferences, MenuItem, StoreProfile, NotifikasiItem } from '../types';
 
 export interface KatalogResponse {
   success: boolean;
@@ -623,41 +623,21 @@ export const getUlasanPesanan = async (idPesanan: number) => {
   return safeParseJson(response);
 };
 
-const apiClient = {
-  getMenus,
-  tambahMenu,
-  updateMenu,
-  toggleMenuStatus,
-  hapusMenu,
-  toggleStokMenu: toggleMenuStatus,
-  getProfil: getProfilPengguna,
-  getKatalog,
-  searchKatalog,
-  getDetailMenuKatalog,
-  getDaftarTokoKatalog,
-  masukanItemKeKeranjang,
-  getKeranjang,
-  hapusItemKeranjang,
-  kosongkanKeranjang,
-  simpanPreferensiMakanan,
-  lewatiPreferensiMakanan,
-  getRiwayatPesanan,
-  kirimUlasan,
-  getUlasanPesanan,
-  uploadFotoMenu,
-};
-
-export default apiClient;
-
 export const postJson = async <TResponse, TPayload>(
   endpoint: string,
   payload: TPayload
 ): Promise<TResponse> => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 
@@ -803,6 +783,7 @@ export interface PesananPayload {
 
 export interface PesananData {
   idPesanan: number;
+  orderNumber?: string;
   idPembayaran: number;
   orderId: string;
   totalBayar: number;
@@ -812,6 +793,7 @@ export interface PesananData {
   metodePembayaran: string;
   statusPesanan: string;
   statusPembayaran: string;
+  batasKonfirmasiAt?: string | null;
   snapToken?: string;
   redirectUrl?: string;
 }
@@ -822,6 +804,37 @@ export interface PesananResponse {
   data: PesananData;
 }
 
+export interface PenjualOrderItem {
+  id: string;
+  idPesanan: number;
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  catatan?: string;
+  items: { idMenu: number; name: string; qty: number; modifier: string; price: number; subtotal: number }[];
+  totalPrice: number;
+  discount: number;
+  remainingSeconds: number;
+  batasKonfirmasiAt?: string | null;
+  statusPesanan: string;
+  metodePembayaran: string;
+  statusPembayaran: string;
+  paymentType: string;
+  isCOD: boolean;
+  orderTime: string;
+  tanggalPemesanan?: string;
+}
+
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('makandulu_token');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 export const buatPesanan = (payload: PesananPayload) =>
   postJson<PesananResponse, PesananPayload>('/api/pemesanan', payload);
 
@@ -830,17 +843,158 @@ export const konfirmasiPembayaranSelesai = (
   midtransResult?: unknown
 ) =>
   postJson<
-    { success: boolean; message: string; data: unknown },
+    {
+      success: boolean;
+      message: string;
+      data: {
+        idPesanan: number;
+        orderNumber: string;
+        statusPembayaran: string;
+        statusPesanan: string;
+        batasKonfirmasiAt?: string | null;
+      };
+    },
     { midtransResult?: unknown }
   >(`/api/pembayaran/selesai/${idPesanan}`, { midtransResult });
 
 export const getStatusPesanan = async (idPesanan: number) => {
-  const response = await fetch(`/api/pemesanan/${idPesanan}`);
+  const response = await fetch(`/api/pemesanan/${idPesanan}`, { headers: getAuthHeaders() });
   const data = await safeParseJson<{ success: boolean; data: any }>(response);
   if (!response.ok || data.success === false) {
     throw new ApiError('Gagal memuat status pesanan.', response.status, data);
   }
   return data;
 };
+
+export const cekStatusPembayaran = async (idPesanan: number) => {
+  const response = await fetch(`/api/pembayaran/status/${idPesanan}`, { headers: getAuthHeaders() });
+  const data = await safeParseJson<{ success: boolean; data: any }>(response);
+  if (!response.ok || data.success === false) {
+    throw new ApiError('Gagal memeriksa status pembayaran.', response.status, data);
+  }
+  return data;
+};
+
+export const getPesananAktifPembeli = async (idPembeli?: number | string) => {
+  const query = idPembeli ? `?idPembeli=${idPembeli}` : '';
+  const response = await fetch(`/api/pesanan/pembeli/aktif${query}`, { headers: getAuthHeaders() });
+  const data = await safeParseJson<{ success: boolean; data: any }>(response);
+  if (!response.ok || data.success === false) {
+    throw new ApiError('Gagal memuat pesanan aktif pembeli.', response.status, data);
+  }
+  return data;
+};
+
+export const getPesananPenjual = async (idPenjual?: number | string) => {
+  const query = idPenjual ? `?idPenjual=${idPenjual}` : '';
+  const response = await fetch(`/api/pesanan/penjual${query}`, { headers: getAuthHeaders() });
+  const data = await safeParseJson<{ success: boolean; message?: string; data: PenjualOrderItem[] }>(response);
+  if (!response.ok || data.success === false) {
+    throw new ApiError(data.message || 'Gagal memuat daftar pesanan penjual.', response.status, data);
+  }
+  return data;
+};
+
+/**
+ * Main Flow Sequence Diagram:
+ * halaman_dashboard_penjual -> pesanan_controller: konfirmasi_pesanan(idPesanan)
+ */
+export const konfirmasiPesananPenjual = (idPesanan: number) =>
+  postJson<{
+    success: boolean;
+    message: string;
+    data: {
+      idPesanan: number;
+      orderNumber: string;
+      statusPesanan: string;
+      timerStopped: boolean;
+      timerMessage?: string;
+    };
+  }, Record<string, never>>(`/api/pesanan/${idPesanan}/konfirmasi`, {});
+
+export const tandaiPesananDiantar = (idPesanan: number) =>
+  postJson<{ success: boolean; message: string; data: any }, Record<string, never>>(
+    `/api/pesanan/${idPesanan}/siap-diantar`,
+    {}
+  );
+
+export const selesaikanPesananPembeli = (idPesanan: number, ditolakCod = false) =>
+  postJson<{ success: boolean; message: string; data: any }, { ditolakCod: boolean }>(
+    `/api/pesanan/${idPesanan}/selesai`,
+    { ditolakCod }
+  );
+
+export const simulasiWaktuHabis = (idPesanan: number) =>
+  postJson<{ success: boolean; message: string; data: any }, Record<string, never>>(
+    `/api/pesanan/${idPesanan}/simulasi-waktu-habis`,
+    {}
+  );
+
+export const getNotifikasiPengguna = async (role?: 'Pembeli' | 'Penjual', idUser?: number | string) => {
+  const params = new URLSearchParams();
+  if (role) params.append('role', role);
+  if (idUser) params.append('idUser', String(idUser));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetch(`/api/pesanan/notifikasi${query}`, { headers: getAuthHeaders() });
+  const data = await safeParseJson<{ success: boolean; data: NotifikasiItem[]; unreadCount: number }>(response);
+  if (!response.ok || data.success === false) {
+    throw new ApiError('Gagal memuat notifikasi.', response.status, data);
+  }
+  return data;
+};
+
+export const tandaiNotifikasiDibaca = async (
+  idNotifikasi?: number,
+  role?: 'Pembeli' | 'Penjual',
+  idUser?: number | string
+) => {
+  const response = await fetch('/api/pesanan/notifikasi/baca', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify({ idNotifikasi, role, idUser }),
+  });
+  return safeParseJson<{ success: boolean; message: string }>(response);
+};
+
+const apiClient = {
+  getMenus,
+  tambahMenu,
+  updateMenu,
+  toggleMenuStatus,
+  hapusMenu,
+  toggleStokMenu: toggleMenuStatus,
+  getProfil: getProfilPengguna,
+  getKatalog,
+  searchKatalog,
+  getDetailMenuKatalog,
+  getDaftarTokoKatalog,
+  masukanItemKeKeranjang,
+  getKeranjang,
+  hapusItemKeranjang,
+  kosongkanKeranjang,
+  simpanPreferensiMakanan,
+  lewatiPreferensiMakanan,
+  getRiwayatPesanan,
+  kirimUlasan,
+  getUlasanPesanan,
+  uploadFotoMenu,
+  buatPesanan,
+  konfirmasiPembayaranSelesai,
+  getStatusPesanan,
+  cekStatusPembayaran,
+  getPesananAktifPembeli,
+  getPesananPenjual,
+  konfirmasiPesananPenjual,
+  tandaiPesananDiantar,
+  selesaikanPesananPembeli,
+  simulasiWaktuHabis,
+  getNotifikasiPengguna,
+  tandaiNotifikasiDibaca,
+};
+
+export default apiClient;
 
 

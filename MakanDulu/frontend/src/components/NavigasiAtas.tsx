@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserRole, PembeliTab, PenjualTab, UserProfile } from '../types';
+import { UserRole, PembeliTab, PenjualTab, UserProfile, NotifikasiItem } from '../types';
 import { LOGO_URL, SITI_AVATAR_URL } from '../data/dataMock';
 
 export interface HeaderProps {
@@ -10,6 +10,10 @@ export interface HeaderProps {
   setActivePenjualTab: (tab: PenjualTab) => void;
   cartItemCount: number;
   hasActiveOrder: boolean;
+  activeOrderStatusLabel?: string;
+  notifications?: NotifikasiItem[];
+  unreadCount?: number;
+  onMarkNotificationsRead?: () => void;
   onLogout: () => void;
   onOpenPortalModal?: () => void;
   userProfile?: UserProfile | null;
@@ -25,6 +29,10 @@ export const Header: React.FC<HeaderProps> = ({
   setActivePenjualTab,
   cartItemCount,
   hasActiveOrder,
+  activeOrderStatusLabel,
+  notifications = [],
+  unreadCount = 0,
+  onMarkNotificationsRead,
   onLogout,
   onOpenPortalModal,
   userProfile,
@@ -34,13 +42,25 @@ export const Header: React.FC<HeaderProps> = ({
   const [tampilkanNotifikasi, setTampilkanNotifikasi] = useState(false);
   const [tampilkanMenuProfil, setTampilkanMenuProfil] = useState(false);
 
-  const daftarNotifikasi = userRole === 'Pembeli' ? [
-    { id: 1, title: 'Diskon 35% Spesial', time: '10 mnt lalu', desc: 'Gunakan kupon SELERA35PEDAS saat checkout pesanan.' },
-    { id: 2, title: 'Status Pesanan', time: 'Baru saja', desc: hasActiveOrder ? 'Kurir sedang mengantar hidangan ke alamat Anda.' : 'Tidak ada pesanan aktif saat ini.' }
-  ] : [
-    { id: 1, title: 'Pesanan Baru Masuk!', time: '1 mnt lalu', desc: 'Segera konfirmasi pesanan masuk sebelum timer 10 menit berakhir.' },
-    { id: 2, title: 'Laporan Penjualan', time: '1 jam lalu', desc: 'Omzet hari ini mencapai target harian resto.' }
-  ];
+  const daftarNotifikasi = notifications.length > 0
+    ? notifications.map((n) => ({
+        id: n.idNotifikasi,
+        title: n.judul,
+        time: n.createdAt
+          ? new Date(n.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+          : 'Baru saja',
+        desc: n.pesan,
+        unread: !n.sudahDibaca,
+        tipe: n.tipe,
+      }))
+    : userRole === 'Pembeli'
+    ? [
+        { id: 1, title: 'Diskon 35% Spesial', time: 'Info', desc: 'Gunakan kupon SELERA35PEDAS saat checkout pesanan.', unread: false, tipe: 'info' },
+        { id: 2, title: 'Status Pesanan', time: 'Live', desc: hasActiveOrder ? 'Pantau status pesanan Anda pada tab Pengiriman.' : 'Tidak ada pesanan aktif saat ini.', unread: false, tipe: 'info' },
+      ]
+    : [
+        { id: 1, title: 'Antrean Pesanan Masuk', time: 'Info', desc: 'Pesanan COD dan Non-COD Lunas akan muncul otomatis dengan timer 10 menit.', unread: false, tipe: 'info' },
+      ];
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#f9f9ff]/95 backdrop-blur-xl shadow-xs border-b border-[#dee8ff]">
@@ -90,23 +110,50 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label="Notifikasi"
             >
               <span className="material-symbols-outlined text-xl leading-none">notifications</span>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#cc4900]"></span>
+              {(unreadCount > 0 || notifications.length === 0) && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#cc4900] text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadCount > 0 ? unreadCount : ''}
+                </span>
+              )}
             </button>
 
             {tampilkanNotifikasi && (
               <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-[#dee8ff] p-3 z-50 animate-in fade-in zoom-in-95">
                 <div className="flex items-center justify-between pb-2 border-b border-[#e7eeff] px-2">
-                  <span className="text-xs font-bold text-[#111c2d]">Notifikasi</span>
-                  <span className="text-[10px] text-[#006c49] font-bold cursor-pointer">Tandai Dibaca</span>
+                  <span className="text-xs font-bold text-[#111c2d]">
+                    Notifikasi {unreadCount > 0 ? `(${unreadCount} baru)` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onMarkNotificationsRead) onMarkNotificationsRead();
+                    }}
+                    className="text-[10px] text-[#006c49] font-bold cursor-pointer hover:underline"
+                  >
+                    Tandai Dibaca
+                  </button>
                 </div>
-                <div className="divide-y divide-[#f0f3ff] max-h-60 overflow-y-auto">
+                <div className="divide-y divide-[#f0f3ff] max-h-72 overflow-y-auto">
                   {daftarNotifikasi.map((item) => (
-                    <div key={item.id} className="p-2 hover:bg-[#f9f9ff] rounded-lg transition-colors cursor-pointer">
-                      <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-[#111c2d]">{item.title}</span>
-                        <span className="text-[10px] text-[#5a4138]">{item.time}</span>
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setTampilkanNotifikasi(false);
+                        if (userRole === 'Pembeli') setActivePembeliTab('tracking');
+                        else setActivePenjualTab('pesanan');
+                      }}
+                      className={`p-2 hover:bg-[#f9f9ff] rounded-lg transition-colors cursor-pointer ${
+                        item.unread ? 'bg-[#fff7f4]' : ''
+                      }`}
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <span className={`text-xs font-bold ${item.tipe === 'auto_cancel' ? 'text-[#ba1a1a]' : 'text-[#111c2d]'}`}>
+                          {item.unread && '• '}
+                          {item.title}
+                        </span>
+                        <span className="text-[10px] text-[#5a4138] shrink-0">{item.time}</span>
                       </div>
-                      <p className="text-[11px] text-[#5a4138] mt-0.5">{item.desc}</p>
+                      <p className="text-[11px] text-[#5a4138] mt-0.5 leading-snug">{item.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -250,7 +297,7 @@ export const Header: React.FC<HeaderProps> = ({
               {hasActiveOrder ? (
                 <span className="flex items-center gap-1 bg-[#6ffbbe] text-[#004d33] px-2 py-0.2 rounded-full text-[10px] font-extrabold animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#006c49]"></span>
-                  <span>Sedang Diantar</span>
+                  <span>{activeOrderStatusLabel || 'Pesanan Aktif'}</span>
                 </span>
               ) : (
                 <span className="text-[10px] text-[#5a4138] bg-[#dee8ff] px-2 py-0.2 rounded-full font-semibold">

@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   UserRole,
   CartItem,
   DeliveryAddress,
   PaymentMethod,
   OrderRecord,
+  OrderSuccessMeta,
+  NotifikasiItem,
   PembeliTab,
   PenjualTab,
   UserProfile,
@@ -234,7 +236,110 @@ useEffect(() => {
       .catch((err) => {
         console.warn('Gagal memuat isi keranjang dari database:', err);
       });
+
+    // Sinkronisasi pesanan aktif Pembeli dari database saat login/reload
+    apiClient
+      .getPesananAktifPembeli(profilPengguna?.id)
+      .then((res) => {
+        if (res.success && res.data) {
+          const d = res.data;
+          const statusRaw = String(d.statusPesanan || '').toLowerCase();
+          let mappedStatus: OrderRecord['status'] = 'menunggu_konfirmasi';
+          if (statusRaw.includes('menunggu pembayaran')) mappedStatus = 'menunggu_pembayaran';
+          else if (statusRaw.includes('menunggu konfirmasi')) mappedStatus = 'menunggu_konfirmasi';
+          else if (statusRaw.includes('sedang disiapkan') || statusRaw.includes('disiapkan') || statusRaw.includes('diterima')) mappedStatus = 'dimasak';
+          else if (statusRaw.includes('antar')) mappedStatus = 'diantar';
+          else if (statusRaw.includes('batal')) mappedStatus = 'auto_batal_10mnt';
+
+          const isCodOrder =
+            String(d.metodePembayaran || '').toUpperCase().includes('COD') &&
+            !String(d.metodePembayaran || '').toUpperCase().includes('NON-COD');
+
+          setPesananSaatIni({
+            id: `ord-${d.idPesanan}`,
+            idPesanan: d.idPesanan,
+            orderNumber: d.orderNumber || `MKD-${String(d.idPesanan).padStart(5, '0')}`,
+            midtransOrderId: d.midtransOrderId,
+            items: (d.items || []).map((it: any) => ({
+              id: `c-${it.idDetailPesanan}`,
+              menuId: `menu-${it.idMenu}`,
+              name: it.namaMenu,
+              price: Number(it.hargaSatuan),
+              qty: it.jumlah,
+              sublabel: it.modifier || 'Rasa Autentik',
+              restaurant: d.namaToko || 'Mitra MakanDulu',
+            })),
+            subtotal: Number(d.totalHarga || 0),
+            shippingFee: 10000,
+            serviceFee: 2000,
+            discount: Number(d.totalDiskon || 0),
+            total: Number(d.totalHarga || 0),
+            paymentMethod: isCodOrder ? 'cod' : 'ewallet',
+            selectedProvider: d.metodePembayaran || 'Midtrans',
+            statusPembayaran: d.statusPembayaran,
+            statusPesananDb: d.statusPesanan,
+            batasKonfirmasiAt: d.batasKonfirmasiAt,
+            catatan: d.catatan,
+            address: {
+              label: 'Alamat Pengantaran',
+              street: d.alamatPengantaran || alamatTujuanSaatIni.street,
+              details: '',
+              notes: d.catatan || '',
+            },
+            status: mappedStatus,
+            orderTime: d.tanggalPemesanan
+              ? new Date(d.tanggalPemesanan).toLocaleTimeString('id-ID', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) + ' WIB'
+              : 'Baru saja',
+            estimatedDeliveryTime: '15-20 Menit',
+            driverName: 'Pak Ahmad Fauzi',
+            driverPhone: '0812-9876-5432',
+            driverPlate: 'B 4821 KOP',
+            driverRating: 4.9,
+            podImageUrl: POD_PHOTO_URL,
+            merchantTimerSeconds: d.remainingSeconds ?? 600,
+          });
+        }
+      })
+      .catch(() => {});
   }, [peranPengguna, tahapAplikasi, profilPengguna?.id]);
+
+  // Notifikasi real-time (layanan_notifikasi -> Penjual & Pembeli)
+  const [daftarNotifikasi, setDaftarNotifikasi] = useState<NotifikasiItem[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const lastSeenNotifIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (tahapAplikasi !== 'app' || !peranPengguna || !profilPengguna?.id) return;
+
+    const cekNotifikasi = async () => {
+      try {
+        const res = await apiClient.getNotifikasiPengguna(peranPengguna, profilPengguna.id);
+        if (res.success && Array.isArray(res.data)) {
+          setDaftarNotifikasi(res.data);
+          setUnreadNotifCount(res.unreadCount || 0);
+
+          const latest = res.data[0];
+          if (latest) {
+            if (lastSeenNotifIdRef.current !== null && latest.idNotifikasi > lastSeenNotifIdRef.current && !latest.sudahDibaca) {
+              tampilkanToast(latest.judul, latest.pesan, latest.tipe === 'auto_cancel');
+            }
+            lastSeenNotifIdRef.current = latest.idNotifikasi;
+          } else if (lastSeenNotifIdRef.current === null) {
+            lastSeenNotifIdRef.current = 0;
+          }
+        }
+      } catch {
+        // Abaikan error polling notifikasi sementara
+      }
+    };
+
+    cekNotifikasi();
+    const interval = setInterval(cekNotifikasi, 5000);
+    return () => clearInterval(interval);
+  }, [tahapAplikasi, peranPengguna, profilPengguna?.id]);
 
   useEffect(() => {
     simpanKePenyimpanan(KUNCI_STORAGE.TAHAP_APLIKASI, tahapAplikasi);
@@ -424,11 +529,21 @@ useEffect(() => {
     itemBelanja: CartItem[],
     totalTagihan: number,
     metodeBayar: PaymentMethod,
-    namaPenyedia?: string
+    namaPenyedia?: string,
+    meta?: OrderSuccessMeta
   ) => {
+    const statusRaw = String(meta?.statusPesanan || '').toLowerCase();
+    let initialStatus: OrderRecord['status'] = 'menunggu_konfirmasi';
+    if (statusRaw.includes('menunggu pembayaran')) initialStatus = 'menunggu_pembayaran';
+    else if (statusRaw.includes('sedang disiapkan') || statusRaw.includes('disiapkan')) initialStatus = 'dimasak';
+    else if (statusRaw.includes('batal')) initialStatus = 'auto_batal_10mnt';
+
     const pesananBaru: OrderRecord = {
-      id: `order-${Date.now()}`,
-      orderNumber: `MKD-${Math.floor(100000 + Math.random() * 900000)}`,
+      id: meta?.idPesanan ? `ord-${meta.idPesanan}` : `order-${Date.now()}`,
+      idPesanan: meta?.idPesanan,
+      orderNumber: meta?.orderNumber || `MKD-${Math.floor(100000 + Math.random() * 900000)}`,
+      midtransOrderId: meta?.midtransOrderId,
+      snapToken: meta?.snapToken,
       items: itemBelanja,
       subtotal: itemBelanja.reduce((acc, i) => acc + i.price * i.qty, 0),
       shippingFee: 10000,
@@ -437,8 +552,12 @@ useEffect(() => {
       total: totalTagihan,
       paymentMethod: metodeBayar,
       selectedProvider: namaPenyedia || 'GoPay',
+      statusPembayaran: meta?.statusPembayaran,
+      statusPesananDb: meta?.statusPesanan || (initialStatus === 'menunggu_pembayaran' ? 'Menunggu Pembayaran' : 'Menunggu Konfirmasi Penjual'),
+      batasKonfirmasiAt: meta?.batasKonfirmasiAt,
+      catatan: meta?.catatan,
       address: alamatTujuanSaatIni,
-      status: 'dimasak',
+      status: initialStatus,
       orderTime: 'Baru saja',
       estimatedDeliveryTime: '15-20 Menit',
       driverName: 'Pak Ahmad Fauzi',
@@ -453,10 +572,6 @@ useEffect(() => {
     setKeranjang([]);
     apiClient.kosongkanKeranjang().catch(() => {});
     setTabAktifPembeli('tracking');
-    tampilkanToast(
-      'Pesanan Diterima Dapur!',
-      `Pesanan #${pesananBaru.orderNumber} sedang disiapkan oleh mitra dapur resto.`
-    );
   };
 
   // Handler keluar / ganti peran
@@ -569,6 +684,28 @@ useEffect(() => {
         setActivePenjualTab={setTabAktifPenjual}
         cartItemCount={totalJumlahItemKeranjang}
         hasActiveOrder={pesananSaatIni !== null}
+        activeOrderStatusLabel={
+          !pesananSaatIni
+            ? undefined
+            : pesananSaatIni.status === 'menunggu_pembayaran'
+            ? 'Menunggu Bayar'
+            : pesananSaatIni.status === 'menunggu_konfirmasi'
+            ? 'Menunggu Resto'
+            : pesananSaatIni.status === 'dimasak'
+            ? 'Sedang Disiapkan'
+            : pesananSaatIni.status === 'auto_batal_10mnt'
+            ? 'Dibatalkan Otomatis'
+            : pesananSaatIni.status === 'selesai'
+            ? 'Selesai'
+            : 'Sedang Diantar'
+        }
+        notifications={daftarNotifikasi}
+        unreadCount={unreadNotifCount}
+        onMarkNotificationsRead={() => {
+          apiClient.tandaiNotifikasiDibaca(undefined, peranPengguna, profilPengguna?.id).catch(() => {});
+          setUnreadNotifCount(0);
+          setDaftarNotifikasi((prev) => prev.map((n) => ({ ...n, sudahDibaca: true })));
+        }}
         onLogout={tanganiKeluarKeLanding}
         onOpenPortalModal={() => {
           setTahapAplikasi('auth');
@@ -658,6 +795,7 @@ useEffect(() => {
             {tabAktifPembeli === 'tracking' && (
               <PelacakanPesanan
                 currentOrder={pesananSaatIni}
+                onUpdateOrder={(upd) => setPesananSaatIni(upd)}
                 onNavigateToCatalog={() => {
                   setNamaTokoDilihat(null);
                   setTabAktifPembeli('katalog');
@@ -754,6 +892,7 @@ useEffect(() => {
                 onNavigateToVoucher={() => setTabAktifPenjual('voucher')}
                 onNavigateToReport={() => setTabAktifPenjual('laporan')}
                 userProfile={profilPengguna}
+                showToast={tampilkanToast}
               />
             )}
           </>

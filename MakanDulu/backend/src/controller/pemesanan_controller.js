@@ -2,6 +2,85 @@
 
 const db = require('../config/db');
 const { buatTransaksiSnap, cekStatusTransaksi } = require('../services/layanan_midtrans');
+const timerController = require('./timer_controller');
+const layananNotifikasi = require('../services/layanan_notifikasi');
+const { autoCancelPesanan } = require('./pesanan_controller');
+
+const isMetodeCOD = (metode = '') => {
+  const upper = String(metode || '').toUpperCase();
+  return !upper.includes('NON-COD') && (upper === 'COD' || upper.startsWith('COD') || upper.includes('TUNAI') || upper.includes('BAYAR DI TEMPAT'));
+};
+
+/**
+ * Helper idempoten untuk meneruskan pesanan Non-COD ke Penjual SETELAH pembayaran berhasil.
+ * Mengubah status -> "Menunggu Konfirmasi Penjual", mulai timer 10 menit, dan kirim notifikasi ke Penjual.
+ */
+const aktifkanPesananSetelahPembayaran = async (idPesanan) => {
+  const id = Number(idPesanan);
+  const [rows] = await db.execute(
+    `SELECT p.idPesanan, p.idPenjual, p.idPembeli, p.statusPesanan, p.batasKonfirmasiAt, p.totalHarga,
+            b.metodePembayaran, b.statusPembayaran,
+            pemb.nama AS namaPembeli
+     FROM Pesanan p
+     LEFT JOIN Pembayaran b ON p.idPesanan = b.idPesanan
+     LEFT JOIN Pembeli pemb ON p.idPembeli = pemb.idPembeli
+     WHERE p.idPesanan = ?`,
+    [id]
+  );
+
+  if (rows.length === 0) return null;
+  const pesanan = rows[0];
+
+  await db.execute(
+    `UPDATE Pembayaran
+     SET statusPembayaran = 'Pembayaran Berhasil', tanggalPembayaran = NOW()
+     WHERE idPesanan = ?`,
+    [id]
+  );
+
+  // Hanya teruskan ke Penjual jika sebelumnya masih menunggu pembayaran (mencegah duplikasi timer/notif)
+  if (pesanan.statusPesanan === 'Menunggu Pembayaran') {
+    await db.execute(
+      `UPDATE Pesanan
+       SET statusPesanan = 'Menunggu Konfirmasi Penjual',
+           batasKonfirmasiAt = DATE_ADD(NOW(), INTERVAL 10 MINUTE)
+       WHERE idPesanan = ?`,
+      [id]
+    );
+
+    timerController.start_timer(id, timerController.DURASI_KONFIRMASI_MS);
+
+    await layananNotifikasi.kirimNotifikasiPesananMasuk({
+      idPesanan: id,
+      idPenjual: pesanan.idPenjual,
+      namaPembeli: pesanan.namaPembeli || 'Pembeli',
+      totalHarga: Number(pesanan.totalHarga),
+      metodePembayaran: pesanan.metodePembayaran || 'Midtrans',
+      isLunas: true,
+    });
+  } else if (pesanan.statusPesanan === 'Menunggu Konfirmasi Penjual' && !pesanan.batasKonfirmasiAt) {
+    await db.execute(
+      `UPDATE Pesanan
+       SET batasKonfirmasiAt = DATE_ADD(NOW(), INTERVAL 10 MINUTE)
+       WHERE idPesanan = ?`,
+      [id]
+    );
+    timerController.start_timer(id, timerController.DURASI_KONFIRMASI_MS);
+  }
+
+  const [updated] = await db.execute(
+    `SELECT statusPesanan,
+            GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, NOW(), batasKonfirmasiAt), 0)) AS sisaDetikDb
+     FROM Pesanan WHERE idPesanan = ?`,
+    [id]
+  );
+  const row = updated[0];
+  const sisa = Number(row?.sisaDetikDb ?? 600);
+  return {
+    statusPesanan: row?.statusPesanan || 'Menunggu Konfirmasi Penjual',
+    batasKonfirmasiAt: new Date(Date.now() + sisa * 1000).toISOString(),
+  };
+};
 
 // 1. BUAT PESANAN (Checkout & Inisialisasi Pembayaran Midtrans)
 const buatPesanan = async (req, res) => {
@@ -64,7 +143,7 @@ const buatPesanan = async (req, res) => {
     // --- LANGKAH 11 & 12: Cek Stok Menu (Entity Menu) ---
     const placeholders = menuIds.map(() => '?').join(',');
     const [menuRows] = await connection.execute(
-      `SELECT idMenu, idPenjual, namaMenu, harga, statusAktif FROM Menu WHERE idMenu IN (${placeholders})`,
+      `SELECT idMenu, idPenjual, namaMenu, harga, stok, statusAktif FROM Menu WHERE idMenu IN (${placeholders})`,
       menuIds
     );
 
@@ -83,7 +162,7 @@ const buatPesanan = async (req, res) => {
         });
       }
 
-      if (menuDb.statusAktif === 0 || menuDb.statusAktif === false) {
+      if (menuDb.statusAktif === 0 || menuDb.statusAktif === false || Number(menuDb.stok ?? 10) <= 0) {
         return res.status(400).json({
           success: false,
           message: `Menu "${menuDb.namaMenu}" sedang habis stoknya (nonaktif). Hapus menu ini dari pesanan sebelum melanjutkan.`,
@@ -152,26 +231,36 @@ const buatPesanan = async (req, res) => {
     const biayaOngkir = Number(ongkir) || 0;
     const totalBayar = Math.max(0, totalHargaItem - totalDiskon + biayaOngkir);
 
+    // Tentukan status awal berdasarkan metode pembayaran:
+    // - COD -> langsung "Menunggu Konfirmasi Penjual" + timer 10 menit
+    // - Non-COD (Midtrans) -> "Menunggu Pembayaran" (belum masuk ke penjual sampai pembayaran lunas!)
+    const isCOD = isMetodeCOD(metodePembayaran);
+    const statusAwalPesanan = isCOD ? 'Menunggu Konfirmasi Penjual' : 'Menunggu Pembayaran';
+    const statusAwalPembayaran = isCOD ? 'Belum Dibayar (COD)' : 'Menunggu Pembayaran';
+
     // Mulai transaksi database
     await connection.beginTransaction();
 
     // --- LANGKAH 15 & 16: Simpan Pesanan (Entity Pesanan) ---
     const [pesananResult] = await connection.execute(
       `INSERT INTO Pesanan 
-        (idPembeli, idPenjual, idVoucher, tanggalPemesanan, kodeVoucher, alamatPengantaran, statusPesanan, totalHarga, totalDiskon) 
-       VALUES (?, ?, ?, NOW(), ?, ?, 'Menunggu Konfirmasi Penjual', ?, ?)`,
+        (idPembeli, idPenjual, idVoucher, tanggalPemesanan, kodeVoucher, alamatPengantaran, catatan, statusPesanan, batasKonfirmasiAt, totalHarga, totalDiskon) 
+       VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ${isCOD ? 'DATE_ADD(NOW(), INTERVAL 10 MINUTE)' : 'NULL'}, ?, ?)`,
       [
         idPembeli,
         idPenjual,
         idVoucher,
         kodeVoucherAktif,
         String(alamatPengantaran).trim(),
+        catatan ? String(catatan).trim() : null,
+        statusAwalPesanan,
         totalBayar,
         totalDiskon,
       ]
     );
 
     const idPesanan = pesananResult.insertId;
+    const orderId = `MD-${idPesanan}-${Date.now().toString().slice(-6)}`;
 
     // --- LANGKAH 17–20: Simpan Detail Pesanan dari Keranjang (Entity DetailPesanan) ---
     for (const d of detailItems) {
@@ -184,14 +273,11 @@ const buatPesanan = async (req, res) => {
     }
 
     // --- LANGKAH 21 & 22: Simpan Data Pembayaran (Entity Pembayaran) ---
-    const isCOD = String(metodePembayaran).toUpperCase() === 'COD';
-    const statusAwalPembayaran = isCOD ? 'Belum Dibayar (COD)' : 'Menunggu Pembayaran';
-
     const [pembayaranResult] = await connection.execute(
       `INSERT INTO Pembayaran 
-        (idPesanan, metodePembayaran, statusPembayaran, totalBayar, tanggalPembayaran) 
-       VALUES (?, ?, ?, ?, NOW())`,
-      [idPesanan, metodePembayaran, statusAwalPembayaran, totalBayar]
+        (idPesanan, midtransOrderId, metodePembayaran, statusPembayaran, totalBayar, tanggalPembayaran) 
+       VALUES (?, ?, ?, ?, ?, NOW())`,
+      [idPesanan, isCOD ? null : orderId, metodePembayaran, statusAwalPembayaran, totalBayar]
     );
 
     const idPembayaran = pembayaranResult.insertId;
@@ -216,10 +302,30 @@ const buatPesanan = async (req, res) => {
     // Commit transaksi pesanan ke database
     await connection.commit();
 
+    // Jika COD: langsung mulai timer 10 menit dan beri tahu penjual
+    let batasKonfirmasiAt = null;
+    if (isCOD) {
+      const [batasRows] = await db.execute(
+        `SELECT GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, NOW(), batasKonfirmasiAt), 600)) AS sisaDetikDb
+         FROM Pesanan WHERE idPesanan = ?`,
+        [idPesanan]
+      );
+      const sisaDetik = Number(batasRows[0]?.sisaDetikDb ?? 600);
+      batasKonfirmasiAt = new Date(Date.now() + sisaDetik * 1000).toISOString();
+      timerController.start_timer(idPesanan, timerController.DURASI_KONFIRMASI_MS);
+      await layananNotifikasi.kirimNotifikasiPesananMasuk({
+        idPesanan,
+        idPenjual,
+        namaPembeli: pembeli.nama,
+        totalHarga: totalBayar,
+        metodePembayaran,
+        isLunas: false,
+      });
+    }
+
     // --- LANGKAH 25 & 26: Proses Pembayaran via Layanan Midtrans [eksternal] ---
     let snapToken = null;
     let redirectUrl = null;
-    const orderId = `MD-${idPesanan}-${Date.now().toString().slice(-6)}`;
 
     if (!isCOD) {
       try {
@@ -267,7 +373,6 @@ const buatPesanan = async (req, res) => {
         redirectUrl = midtransRes.redirect_url;
       } catch (midtransError) {
         console.error('[buatPesanan] Gagal inisialisasi Midtrans Snap:', midtransError.message);
-        // Jangan batalkan pesanan jika Midtrans sandbox timeout, berikan fallback
       }
     }
 
@@ -275,10 +380,11 @@ const buatPesanan = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: isCOD
-        ? 'Pesanan COD berhasil dibuat. Pembayaran dilakukan saat kurir tiba.'
-        : 'Pesanan berhasil dibuat. Silakan selesaikan pembayaran via Midtrans.',
+        ? 'Pesanan COD berhasil dibuat dan diteruskan ke penjual.'
+        : 'Pesanan berhasil dibuat. Silakan selesaikan pembayaran via Midtrans agar pesanan diteruskan ke penjual.',
       data: {
         idPesanan,
+        orderNumber: `MKD-${String(idPesanan).padStart(5, '0')}`,
         idPembayaran,
         orderId,
         totalBayar,
@@ -286,8 +392,9 @@ const buatPesanan = async (req, res) => {
         totalDiskon,
         biayaOngkir,
         metodePembayaran,
-        statusPesanan: 'Menunggu Konfirmasi Penjual',
+        statusPesanan: statusAwalPesanan,
         statusPembayaran: statusAwalPembayaran,
+        batasKonfirmasiAt,
         snapToken,
         redirectUrl,
       },
@@ -329,37 +436,27 @@ const notifikasiMidtrans = async (req, res) => {
     let statusBaruPembayaran = null;
     let statusBaruPesanan = null;
 
-    if (transactionStatus === 'capture') {
-      if (fraudStatus === 'accept') {
-        statusBaruPembayaran = 'Pembayaran Berhasil';
-        statusBaruPesanan = 'Menunggu Konfirmasi Penjual';
-      }
-    } else if (transactionStatus === 'settlement') {
-      // --- LANGKAH 30–34: Pembayaran Berhasil ---
+    if ((transactionStatus === 'capture' && fraudStatus === 'accept') || transactionStatus === 'settlement') {
+      // --- LANGKAH 30–34: Pembayaran Non-COD Berhasil -> teruskan ke penjual & mulai timer 10 menit ---
+      const aktif = await aktifkanPesananSetelahPembayaran(idPesanan);
       statusBaruPembayaran = 'Pembayaran Berhasil';
-      statusBaruPesanan = 'Menunggu Konfirmasi Penjual';
+      statusBaruPesanan = aktif?.statusPesanan || 'Menunggu Konfirmasi Penjual';
     } else if (['cancel', 'deny', 'expire'].includes(transactionStatus)) {
       statusBaruPembayaran = transactionStatus === 'expire' ? 'Kadaluarsa' : 'Pembayaran Dibatalkan';
       statusBaruPesanan = 'Dibatalkan';
-    } else if (transactionStatus === 'pending') {
-      statusBaruPembayaran = 'Menunggu Pembayaran';
-    }
-
-    if (statusBaruPembayaran) {
       await db.execute(
-        `UPDATE Pembayaran 
-         SET statusPembayaran = ?, tanggalPembayaran = NOW() 
-         WHERE idPesanan = ?`,
+        `UPDATE Pembayaran SET statusPembayaran = ?, tanggalPembayaran = NOW() WHERE idPesanan = ?`,
         [statusBaruPembayaran, idPesanan]
       );
-    }
-
-    if (statusBaruPesanan) {
       await db.execute(
-        `UPDATE Pesanan 
-         SET statusPesanan = ? 
-         WHERE idPesanan = ?`,
-        [statusBaruPesanan, idPesanan]
+        `UPDATE Pesanan SET statusPesanan = 'Dibatalkan' WHERE idPesanan = ?`,
+        [idPesanan]
+      );
+    } else if (transactionStatus === 'pending') {
+      statusBaruPembayaran = 'Menunggu Pembayaran';
+      await db.execute(
+        `UPDATE Pembayaran SET statusPembayaran = ? WHERE idPesanan = ?`,
+        [statusBaruPembayaran, idPesanan]
       );
     }
 
@@ -380,7 +477,6 @@ const notifikasiMidtrans = async (req, res) => {
 // 3. KONFIRMASI STATUS PEMBAYARAN SUKSES DARI FRONTEND (LANGKAH 30–35)
 const konfirmasiPembayaranSelesai = async (req, res) => {
   const { idPesanan } = req.params;
-  const { midtransResult } = req.body || {};
 
   try {
     const [rows] = await db.execute(
@@ -392,28 +488,18 @@ const konfirmasiPembayaranSelesai = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
     }
 
-    // --- LANGKAH 31–34: Ubah Status Pembayaran & Status Pesanan ---
-    await db.execute(
-      `UPDATE Pembayaran 
-       SET statusPembayaran = 'Pembayaran Berhasil', tanggalPembayaran = NOW() 
-       WHERE idPesanan = ?`,
-      [idPesanan]
-    );
-
-    await db.execute(
-      `UPDATE Pesanan 
-       SET statusPesanan = 'Menunggu Konfirmasi Penjual' 
-       WHERE idPesanan = ?`,
-      [idPesanan]
-    );
+    // --- LANGKAH 31–34: Ubah Status Pembayaran -> "Pembayaran Berhasil", Pesanan -> "Menunggu Konfirmasi Penjual", mulai timer & notif penjual ---
+    const aktif = await aktifkanPesananSetelahPembayaran(idPesanan);
 
     return res.status(200).json({
       success: true,
       message: 'Pembayaran berhasil diverifikasi. Pesanan diteruskan ke penjual.',
       data: {
         idPesanan: Number(idPesanan),
+        orderNumber: `MKD-${String(idPesanan).padStart(5, '0')}`,
         statusPembayaran: 'Pembayaran Berhasil',
-        statusPesanan: 'Menunggu Konfirmasi Penjual',
+        statusPesanan: aktif?.statusPesanan || 'Menunggu Konfirmasi Penjual',
+        batasKonfirmasiAt: aktif?.batasKonfirmasiAt || null,
       },
     });
   } catch (error) {
@@ -425,25 +511,72 @@ const konfirmasiPembayaranSelesai = async (req, res) => {
   }
 };
 
-// 4. CEK STATUS PESANAN & PEMBAYARAN
+// 4. CEK STATUS PESANAN & PEMBAYARAN (Sekaligus Sinkron Midtrans jika masih Menunggu Pembayaran)
 const getStatusPesanan = async (req, res) => {
   const { idPesanan } = req.params;
 
   try {
-    const [rows] = await db.execute(
-      `SELECT p.idPesanan, p.idPembeli, p.idPenjual, p.tanggalPemesanan, p.alamatPengantaran,
-              p.statusPesanan, p.totalHarga, p.totalDiskon, p.kodeVoucher,
-              b.idPembayaran, b.metodePembayaran, b.statusPembayaran, b.totalBayar, b.tanggalPembayaran,
-              penj.namaToko, penj.alamatToko
-       FROM Pesanan p
-       LEFT JOIN Pembayaran b ON p.idPesanan = b.idPesanan
-       LEFT JOIN Penjual penj ON p.idPenjual = penj.idPenjual
-       WHERE p.idPesanan = ?`,
-      [idPesanan]
-    );
+    const querySql = `
+      SELECT p.idPesanan, p.idPembeli, p.idPenjual, p.tanggalPemesanan, p.alamatPengantaran,
+             p.catatan, p.statusPesanan, p.batasKonfirmasiAt,
+             TIMESTAMPDIFF(SECOND, NOW(), p.batasKonfirmasiAt) AS sisaDetikDb,
+             p.dikonfirmasiAt, p.totalHarga, p.totalDiskon, p.kodeVoucher,
+             b.idPembayaran, b.midtransOrderId, b.metodePembayaran, b.statusPembayaran, b.totalBayar, b.tanggalPembayaran,
+             penj.namaToko, penj.alamatToko
+      FROM Pesanan p
+      LEFT JOIN Pembayaran b ON p.idPesanan = b.idPesanan
+      LEFT JOIN Penjual penj ON p.idPenjual = penj.idPenjual
+      WHERE p.idPesanan = ?`;
+
+    let [rows] = await db.execute(querySql, [idPesanan]);
 
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    }
+
+    let pesanan = rows[0];
+
+    // Jika Non-COD masih "Menunggu Pembayaran", cek status riil ke Midtrans API
+    if (
+      pesanan.statusPesanan === 'Menunggu Pembayaran' &&
+      pesanan.statusPembayaran === 'Menunggu Pembayaran' &&
+      pesanan.midtransOrderId
+    ) {
+      try {
+        const tx = await cekStatusTransaksi(pesanan.midtransOrderId);
+        const txStatus = tx?.transaction_status;
+        const fraud = tx?.fraud_status;
+        if (txStatus === 'settlement' || (txStatus === 'capture' && fraud === 'accept')) {
+          await aktifkanPesananSetelahPembayaran(idPesanan);
+          [rows] = await db.execute(querySql, [idPesanan]);
+          pesanan = rows[0];
+        } else if (['cancel', 'deny', 'expire'].includes(txStatus)) {
+          const stBayar = txStatus === 'expire' ? 'Kadaluarsa' : 'Pembayaran Dibatalkan';
+          await db.execute(
+            `UPDATE Pembayaran SET statusPembayaran = ? WHERE idPesanan = ?`,
+            [stBayar, idPesanan]
+          );
+          await db.execute(
+            `UPDATE Pesanan SET statusPesanan = 'Dibatalkan' WHERE idPesanan = ?`,
+            [idPesanan]
+          );
+          [rows] = await db.execute(querySql, [idPesanan]);
+          pesanan = rows[0];
+        }
+      } catch {
+        // Midtrans belum memiliki record pembayaran (pembeli belum memilih channel di Snap), abaikan
+      }
+    }
+
+    // Jika sedang "Menunggu Konfirmasi Penjual" tapi timer 10 menit sudah habis -> jalankan Auto Cancel
+    if (
+      pesanan.statusPesanan === 'Menunggu Konfirmasi Penjual' &&
+      pesanan.batasKonfirmasiAt &&
+      Number(pesanan.sisaDetikDb ?? 0) <= 0
+    ) {
+      await autoCancelPesanan(idPesanan);
+      [rows] = await db.execute(querySql, [idPesanan]);
+      pesanan = rows[0];
     }
 
     const [items] = await db.execute(
@@ -455,10 +588,22 @@ const getStatusPesanan = async (req, res) => {
       [idPesanan]
     );
 
+    const remainingSeconds =
+      pesanan.statusPesanan === 'Menunggu Konfirmasi Penjual'
+        ? timerController.getSisaDetik(pesanan.idPesanan, Math.max(0, Number(pesanan.sisaDetikDb ?? 0)))
+        : 0;
+    const batasIsoUtc =
+      pesanan.statusPesanan === 'Menunggu Konfirmasi Penjual' && pesanan.batasKonfirmasiAt
+        ? new Date(Date.now() + remainingSeconds * 1000).toISOString()
+        : null;
+
     return res.status(200).json({
       success: true,
       data: {
-        ...rows[0],
+        ...pesanan,
+        batasKonfirmasiAt: batasIsoUtc,
+        orderNumber: `MKD-${String(pesanan.idPesanan).padStart(5, '0')}`,
+        remainingSeconds,
         items,
       },
     });
